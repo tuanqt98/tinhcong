@@ -38,6 +38,15 @@ Giữ cửa sổ server mở trong lúc mọi người dùng. Tắt bằng `Ctrl
 - **Tự chạy khi bật máy**: tạo shortcut tới `start-server.bat` trong thư mục `shell:startup`, hoặc dùng Task Scheduler (trigger "At log on").
 - Đổi cổng: `set PORT=8080` trước khi chạy `node server.js`.
 
+## Dòng nghi đảo giờ vào/ra
+
+Máy chấm công có thể gán nhầm trạng thái Vào/Ra, hoặc phần mềm chấm công ghép sai cặp với ca đêm. Khi đó báo cáo có dòng như `Vào 19:03 · Ra 06:38` của người làm ca ngày. Công cụ đánh dấu **"Nghi đảo giờ vào/ra"** khi đổi chỗ 2 giờ cho ra một ca hợp lý (6–16 tiếng) và có một trong hai dấu hiệu sau:
+
+- Cách hiểu hiện tại làm ca bị **chồng giờ** với ngày kế bên, còn khi đổi chỗ thì không chồng.
+- Các ngày trước và sau (trong 3 ngày) của cùng người **đều làm** đúng loại ca mà dòng này sẽ thành nếu đổi chỗ.
+
+Mỗi dòng bị đánh dấu có nút **Đổi chỗ**. Nút **Đổi chỗ dòng nghi đảo** đổi tất cả các dòng cùng lúc. Dòng nào thực ra đúng thì chọn **Ca** thủ công cho dòng đó để xác nhận và tắt cảnh báo. Giờ gốc vẫn được giữ, xem bằng cách rê chuột vào nhãn "Đã sửa".
+
 ## Quên mật khẩu
 
 - **Nhân sự hoặc người chỉ xem quên mật khẩu:** Quản trị vào **Tài khoản**, nhập mật khẩu mới ở dòng của người đó rồi bấm **Đặt**.

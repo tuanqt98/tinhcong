@@ -236,6 +236,7 @@ table.tc input:disabled, table.tc select:disabled { opacity: .75; cursor: not-al
             <select class="in" id="fDept"><option value="">Tất cả</option></select>
           </label>
           <button class="btn" type="button" id="btnMergeAll">Ghép giờ ra ca đêm</button>
+          <button class="btn" type="button" id="btnSwapAll">Đổi chỗ dòng nghi đảo</button>
         </div>
         <div class="exportbar">
           <button class="btn primary" type="button" id="btnZip">Tải ZIP, mỗi nhân viên 1 file</button>
@@ -572,6 +573,7 @@ function computeRec(rec, cfg, hol) {
   let outAbs = rec.out;
   while (outAbs <= inAbs) outAbs += 1440;
   const dur = outAbs - inAbs;
+  res.span = [inAbs, outAbs];   // khoảng có mặt thực tế (phút, tính từ 00:00 ngày của dòng)
   if (dur > 16 * 60) add("w", "LONG", "Ca dài bất thường (" + (dur / 60).toFixed(1) + "h)");
   else if (dur < 120) add("w", "SHORT", "Ca quá ngắn (" + dur + " phút)");
 
@@ -959,6 +961,52 @@ function recomputeAll() {
     if (!state.byEmp.has(r.code)) state.byEmp.set(r.code, []);
     state.byEmp.get(r.code).push(r);
   }
+  detectSwaps(hol);
+}
+
+/* Dò dòng nghi bị đảo giờ vào/ra (máy chấm công gán sai trạng thái Vào/Ra, hoặc phần mềm ghép sai cặp).
+   Một dòng bị nghi khi đổi chỗ vào/ra cho ra ca khác, hợp lý (6–16 tiếng) và:
+   (a) cách hiểu hiện tại chồng giờ với ngày kế bên, còn khi đổi chỗ thì không chồng; hoặc
+   (b) các ngày trước và sau (trong 3 ngày) của cùng người đều làm đúng loại ca mà dòng này sẽ thành nếu đổi chỗ.
+   Chọn Ca thủ công cho dòng đó để xác nhận là đúng và tắt cảnh báo. */
+function dayIdx(iso) { const { y, m, d } = isoToParts(iso); return Date.UTC(y, m - 1, d) / 86400000; }
+function detectSwaps(hol) {
+  state.swaps = [];
+  const cfg = state.cfg;
+  for (const r of state.recs) r.swap = null;
+  for (const rs of state.byEmp.values()) {
+    const full = rs.filter(r => r.in != null && r.out != null && r.calc.shiftKey && r.calc.span);
+    const ivOf = x => { const b = dayIdx(x.date) * 1440; return [b + x.calc.span[0], b + x.calc.span[1]]; };
+    const overlap = (a, b) => a[0] < b[1] && b[0] < a[1];
+    for (let i = 0; i < full.length; i++) {
+      const r = full[i];
+      if (r.shift) continue;
+      const sw = computeRec({ ...r, in: r.out, out: r.in, leave: "" }, cfg, hol);
+      if (!sw.shiftKey || sw.shiftKey === r.calc.shiftKey || !sw.span) continue;
+      const swDur = sw.span[1] - sw.span[0];
+      if (swDur < 360 || swDur > 960) continue;
+      const di = dayIdx(r.date), b0 = di * 1440;
+      const cur = ivOf(r), swIv = [b0 + sw.span[0], b0 + sw.span[1]];
+      let reason = "";
+      const near = full.filter(x => x !== r && Math.abs(dayIdx(x.date) - di) <= 3);
+      const same = near.filter(x => x.calc.shiftKey === sw.shiftKey).length;
+      // Khi 2 ngày chồng giờ, chỉ nghi dòng mà đổi chỗ sẽ khớp với loại ca chiếm đa số những ngày xung quanh
+      const fitsMajority = !near.length || same * 2 > near.length;
+      const adj = [full[i - 1], full[i + 1]].filter(x => x && Math.abs(dayIdx(x.date) - di) === 1);
+      const hit = adj.find(x => overlap(cur, ivOf(x)));
+      if (hit && fitsMajority && !adj.some(x => overlap(swIv, ivOf(x)))) reason = "chồng giờ với ngày " + vnDate(hit.date).slice(0, 5);
+      if (!reason && near.some(x => x.date < r.date) && near.some(x => x.date > r.date) && same === near.length)
+        reason = "các ngày xung quanh đều làm " + cfg.ca[sw.shiftKey].ten.toLowerCase();
+      if (!reason) continue;
+      r.swap = { shiftKey: sw.shiftKey, cols: sw.cols, reason };
+      r.calc.issues.push({ level: "w", code: "SWAP", msg: "Nghi đảo giờ vào/ra: " + reason });
+      state.swaps.push(r.id);
+    }
+  }
+}
+function applySwap(r) {
+  const a = r.in, b = r.out;
+  setEdit(r, "in", b); setEdit(r, "out", a);
 }
 
 function setEdit(r, field, val) {
@@ -1113,7 +1161,7 @@ function renderStats() {
   const rs = state.recs;
   const miss = rs.filter(r => r.calc.issues.some(i => i.level === "e")).length;
   const abs = rs.filter(r => r.calc.issues.some(i => i.code === "ABSENT")).length;
-  const oth = rs.filter(r => r.calc.issues.some(i => i.level === "w" && i.code !== "ABSENT")).length;
+  const oth = rs.filter(r => r.calc.issues.some(i => i.level === "w" && i.code !== "ABSENT" && i.code !== "SWAP")).length;
   const late = rs.filter(r => r.calc.issues.some(i => i.code === "LATE" || i.code === "EARLY")).length;
   const v = state.view.stat;
   const card = (cls, key, n, l) => `<button type="button" class="stat ${cls}${v === key ? " on" : ""}" data-stat="${key}"><div class="n">${n}</div><div class="l">${l}</div></button>`;
@@ -1123,6 +1171,7 @@ function renderStats() {
     card("w", "abs", abs, "Ngày vắng chưa có lý do") +
     card("w", "oth", oth, "Ca bất thường / cảnh báo khác") +
     card("i", "late", late, "Đi muộn, về sớm") +
+    card("w", "swap", state.swaps.length, "Nghi đảo giờ vào / ra") +
     card("i", "merge", state.merges.length, "Gợi ý ghép giờ ra ca đêm");
 }
 function renderDepts() {
@@ -1156,9 +1205,10 @@ function rowVisible(r) {
   if (v.stat) {
     if (v.stat === "miss") return I.some(i => i.level === "e");
     if (v.stat === "abs") return I.some(i => i.code === "ABSENT");
-    if (v.stat === "oth") return I.some(i => i.level === "w" && i.code !== "ABSENT");
+    if (v.stat === "oth") return I.some(i => i.level === "w" && i.code !== "ABSENT" && i.code !== "SWAP");
     if (v.stat === "late") return I.some(i => i.code === "LATE" || i.code === "EARLY");
     if (v.stat === "merge") return !!r.merge;
+    if (v.stat === "swap") return !!r.swap;
   }
   if (v.status === "err") return I.some(i => i.level === "e");
   if (v.status === "todo") return I.some(i => i.level === "e" || i.level === "w") || !!r.merge;
@@ -1225,6 +1275,10 @@ function rowCells(r) {
   const leaveSel = `<select data-f="leave" aria-label="Loại nghỉ"${DIS()} class="${"leave" in ed ? "ed" : ""}"><option value="">${c.autoLeave ? c.autoLeave + " (tự)" : "–"}</option>${LEAVES.map(k => `<option value="${k}"${r.leave === k ? " selected" : ""} title="${LEAVE_NAME[k]}">${k}</option>`).join("")}</select>`;
   const num = v => v ? v.toFixed(2) : "";
   let chips = c.issues.map(i => `<span class="chip ${i.level}">${esc(i.msg)}</span>`).join("");
+  if (r.swap && canEdit()) {
+    const sc = r.swap.cols, desc = Object.keys(sc).map(k => (Math.round(sc[k] * 100) / 100).toLocaleString("vi-VN") + "h " + k + "%").join(" + ");
+    chips += `<button type="button" class="mini" data-swap="${r.id}" title="Sau khi đổi: vào ${fmtHM(r.out)}, ra ${fmtHM(r.in)} — ${esc(state.cfg.ca[r.swap.shiftKey].ten)}: ${esc(desc)}. Nếu dòng này đúng, chọn Ca thủ công để tắt cảnh báo.">Đổi chỗ → ${fmtHM(r.out)}–${fmtHM(r.in)} · ${esc(state.cfg.ca[r.swap.shiftKey].ten)}</button>`;
+  }
   if (r.merge && canEdit()) chips += `<button type="button" class="mini" data-merge="${r.id}" title="Chuyển giờ ${fmtHM(r.merge.t)} thành giờ ra của ca đêm ngày ${vnDate(state.recs[r.merge.prevId].date)}">Ghép ${fmtHM(r.merge.t)} làm giờ ra ca đêm</button>`;
   if (!chips) chips = c.hours || Object.keys(c.leave).length ? `<span class="chip ok">✓</span>` : `<span class="muted">–</span>`;
   if (r.edited || Object.keys(ed).length) {
@@ -1303,6 +1357,8 @@ function renderExportState(msg, cls) {
   const errs = state.recs.filter(r => r.calc.issues.some(i => i.level === "e")).length;
   $("btnOne").hidden = !state.view.emp;
   $("btnMergeAll").textContent = "Ghép giờ ra ca đêm (" + state.merges.length + ")";
+  $("btnSwapAll").textContent = "Đổi chỗ dòng nghi đảo (" + state.swaps.length + ")";
+  $("btnSwapAll").disabled = !state.swaps.length || !canEdit();
   $("btnMergeAll").disabled = !state.merges.length || !canEdit();
   ["btnZip", "btnBook", "btnIssues", "btnOne"].forEach(id => $(id).disabled = !state.recs.length);
   const m = $("exportMsg");
@@ -1475,9 +1531,17 @@ function bind() {
     if (next) next.focus();
   });
   tbl.addEventListener("click", ev => {
+    const s = ev.target.closest("[data-swap]");
+    if (s) { const r = state.recs[+s.dataset.swap]; if (r.swap) { applySwap(r); afterEdit(r.code); } return; }
     const b = ev.target.closest("[data-merge]"); if (!b) return;
     const r = state.recs[+b.dataset.merge];
     if (r.merge) { applyMerge(r.merge); afterEdit(r.code); }
+  });
+  $("btnSwapAll").addEventListener("click", () => {
+    const ids = [...state.swaps];
+    for (const id of ids) applySwap(state.recs[id]);
+    recomputeAll(); renderAll(); persist();
+    renderExportState(`Đã đổi chỗ giờ vào/ra cho ${ids.length} dòng. Các dòng đã sửa có nhãn "Đã sửa"; giờ gốc xem khi rê chuột vào nhãn.`, "ok");
   });
   $("btnMergeAll").addEventListener("click", () => {
     const n = state.merges.length;
