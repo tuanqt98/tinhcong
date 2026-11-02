@@ -62,13 +62,14 @@ Xem và chỉnh trong mục **Quy tắc tính công và cài đặt** trên giao
 
 | | Ngày thường | Chủ nhật | Đi muộn |
 |---|---|---|---|
-| Ca ngày SX 07:00–16:00 (nghỉ 11–12h) | 8h đầu 100%, sau 16:00 tăng ca 150% | toàn bộ 200% | từ 08:01, tính 1 lượt |
-| Ca đêm SX 19:00–07:00 (nghỉ 23–24h) | 4h 100%, 4h 130%, sau 04:00 tăng ca 210% | toàn bộ 230% | từ 22:01, tính 1 lượt |
-| Hành chính VP 08:00–17:00 (nghỉ 12–13h) | 8h 100%, sau 17:00 tăng ca 150% | toàn bộ 200% | từ 08:01, tính 1 lượt |
+| Ca ngày SX từ 07:00 (nghỉ 11–12h) | 8 tiếng đầu 100%, sau 8 tiếng tăng ca 150% | toàn bộ 200% | từ 08:01, tính 1 lượt |
+| Ca đêm SX từ 19:00 (nghỉ 23–24h) | 4 tiếng đầu 100%, 4 tiếng tiếp 130%, sau 8 tiếng tăng ca 210% | toàn bộ 230% | từ 22:01, tính 1 lượt |
+| Hành chính VP từ 08:00 (nghỉ 12–13h) | 8 tiếng đầu 100%, sau 8 tiếng tăng ca 150% | toàn bộ 200% | từ 08:01, tính 1 lượt |
 
+- Giờ làm được tính từ lúc vào thực tế (đến trước giờ bắt đầu ca thì tính từ giờ bắt đầu ca), đến lúc ra, trừ giờ nghỉ giữa ca. Ví dụ ca đêm vào 21:53, ra 07:00 làm được 8 giờ 07 phút: 4h ở 100%, 4h ở 130%, 7 phút tăng ca không đủ 30 phút nên không tính.
 - Phút lẻ sau số giờ chẵn: dưới 30 phút thì bỏ, từ 30 phút tính đúng số phút. Ví dụ ra 14:20 tính đến 14:00, ra 14:40 tính đến 14:40.
 - Tăng ca dưới 30 phút trong ngày không được tính.
-- Đi muộn chỉ đếm lượt, không trừ giờ công. Đến trước giờ vào ca thì không tính thêm.
+- Đi muộn được đếm theo lượt. Giờ công vẫn tính từ lúc vào thực tế.
 - Ngày lễ (cấu hình được) không đi làm thì tự ghi NL = 8h.
 
 ## Cấu trúc mã

@@ -327,46 +327,52 @@ table.tc input:disabled, table.tc select:disabled { opacity: .75; cursor: not-al
  *  - Tăng ca (sau 8 tiếng đầu): dưới 30 phút không tính; từ 30 phút tính đúng số phút
  * ========================================================================= */
 const DEFAULT_CFG = {
-  phienBan: 7,
+  phienBan: 8,
   gioNghi: 8,
   treChoPhep: 5,
   lamTron: { phutToiThieu: 30 },
-  // Tăng ca (khung giờ có đánh dấu "TC"): dưới 30 phút không tính, từ 30 phút tính đúng số phút thực tế
+  // Tăng ca (bậc có đánh dấu "TC"): dưới 30 phút không tính, từ 30 phút tính như giờ làm
   tangCa: { toiThieu: 30 },
   ngayNghiTuan: [0],
   ngayLe: ["2026-01-01", "2026-04-30", "2026-05-01", "2026-09-01", "2026-09-02", "2027-01-01"],
   cotHeSo: ["100", "130", "150", "210", "200", "230", "300"],
   anCotNeuTrong: ["300"],
   mayCham: { SX: ["NGAY", "DEM"], VP: ["HC"] },
+  /* Mỗi ca:
+     - nhanDien: khoảng giờ vào để nhận ra ca;  batDau/ketThuc: giờ ca ("28:00" = 04:00 hôm sau)
+     - nghi: các khoảng nghỉ giữa ca, không tính công
+     - bac: chia giờ làm thực tế (tính từ lúc vào, không sớm hơn batDau; trừ giờ nghỉ) theo thứ tự:
+            [số giờ, cột hệ số] — null = toàn bộ phần còn lại; "TC" = phần tăng ca
+     - diMuon: vào từ mốc "tu" tính 1 lượt đi muộn; khongTruCong=true thì vẫn tính công từ giờ bắt đầu ca */
   ca: {
     NGAY: {
       ten: "Ca ngày", nhanDien: ["04:00", "14:00"], batDau: "07:00", ketThuc: "16:00", caDem: false,
-      // Vào từ 08:01 trở đi tính 1 lượt đi muộn, không trừ phút vào giờ công
-      diMuon: { tu: "08:01", tinhLuot: true, khongTruCong: true },
-      quyTac: {
-        thuong:  [["07:00", "11:00", "100"], ["12:00", "16:00", "100"], ["16:00", null, "150", "TC"]],
-        chuNhat: [["07:00", "11:00", "200"], ["12:00", null, "200"]],
-        le:      [["07:00", "11:00", "300"], ["12:00", null, "300"]]
+      nghi: [["11:00", "12:00"]],
+      diMuon: { tu: "08:01", tinhLuot: true, khongTruCong: false },
+      bac: {
+        thuong:  [[8, "100"], [null, "150", "TC"]],
+        chuNhat: [[null, "200"]],
+        le:      [[null, "300"]]
       }
     },
     DEM: {
       ten: "Ca đêm", nhanDien: ["14:00", "28:00"], batDau: "19:00", ketThuc: "28:00", caDem: true,
-      // Vào từ 22:01 trở đi tính 1 lượt đi muộn, không trừ phút vào giờ công
-      diMuon: { tu: "22:01", tinhLuot: true, khongTruCong: true },
-      quyTac: {
-        thuong:  [["19:00", "23:00", "100"], ["24:00", "28:00", "130"], ["28:00", null, "210", "TC"]],
-        chuNhat: [["19:00", "23:00", "230"], ["24:00", null, "230"]],
-        le:      [["19:00", "23:00", "300"], ["24:00", null, "300"]]
+      nghi: [["23:00", "24:00"]],
+      diMuon: { tu: "22:01", tinhLuot: true, khongTruCong: false },
+      bac: {
+        thuong:  [[4, "100"], [4, "130"], [null, "210", "TC"]],
+        chuNhat: [[null, "230"]],
+        le:      [[null, "300"]]
       }
     },
     HC: {
       ten: "Hành chính", nhanDien: ["00:00", "24:00"], batDau: "08:00", ketThuc: "17:00", caDem: false,
-      // Văn phòng: vào từ 08:01 trở đi tính 1 lượt đi muộn, không trừ phút vào giờ công
-      diMuon: { tu: "08:01", tinhLuot: true, khongTruCong: true },
-      quyTac: {
-        thuong:  [["08:00", "12:00", "100"], ["13:00", "17:00", "100"], ["17:00", null, "150", "TC"]],
-        chuNhat: [["08:00", "12:00", "200"], ["13:00", null, "200"]],
-        le:      [["08:00", "12:00", "300"], ["13:00", null, "300"]]
+      nghi: [["12:00", "13:00"]],
+      diMuon: { tu: "08:01", tinhLuot: true, khongTruCong: false },
+      bac: {
+        thuong:  [[8, "100"], [null, "150", "TC"]],
+        chuNhat: [[null, "200"]],
+        le:      [[null, "300"]]
       }
     }
   }
@@ -570,6 +576,7 @@ function computeRec(rec, cfg, hol) {
   else if (dur < 120) add("w", "SHORT", "Ca quá ngắn (" + dur + " phút)");
 
   const start = hm(sh.batDau), end = hm(sh.ketThuc);
+  if (inAbs < start) inAbs = start;              // đến sớm không tính thêm
   if (sh.diMuon && sh.diMuon.tinhLuot) {
     if (inAbs >= hm(sh.diMuon.tu)) { res.lateCount = 1; add("i", "LATE", "Đi muộn (1 lượt)"); }
     if (sh.diMuon.khongTruCong && inAbs > start) inAbs = start;
@@ -580,14 +587,21 @@ function computeRec(rec, cfg, hol) {
   }
   if (outAbs < end && dayType === "thuong") add("i", "EARLY", "Về sớm " + (end - outAbs) + " phút");
 
-  const segs = sh.quyTac[dayType] || sh.quyTac.thuong;
+  // Giờ làm thực tế = từ lúc vào (không sớm hơn giờ bắt đầu ca) đến lúc ra, trừ giờ nghỉ giữa ca
+  let worked = Math.max(0, outAbs - inAbs);
+  for (const [a, b] of sh.nghi || []) worked -= Math.max(0, Math.min(outAbs, hm(b)) - Math.max(inAbs, hm(a)));
+  worked = Math.max(0, worked);
+  res.workedMinutes = worked;
+  // Chia theo bậc: 4 tiếng đầu, 4 tiếng sau, phần còn lại...
+  const tiers = sh.bac[dayType] || sh.bac.thuong;
   const mins = {}, otMins = {};
-  for (const [s, e, c, kind] of segs) {
-    const S = hm(s), E = e == null ? Infinity : hm(e);
-    const ov = Math.min(outAbs, E) - Math.max(inAbs, S);
-    if (ov <= 0) continue;
-    if (kind === "TC") otMins[c] = (otMins[c] || 0) + ov;
-    else mins[c] = (mins[c] || 0) + ov;
+  let left = worked;
+  for (const [h, c, kind] of tiers) {
+    if (left <= 0) break;
+    const take = h == null ? left : Math.min(left, Math.round(h * 60));
+    left -= take;
+    if (kind === "TC") otMins[c] = (otMins[c] || 0) + take;
+    else mins[c] = (mins[c] || 0) + take;
   }
   const otMin = (cfg.tangCa && cfg.tangCa.toiThieu) || 0;
   let total = 0, otTotal = 0;
@@ -1260,10 +1274,16 @@ function renderRules() {
     const sh = cfg.ca[k];
     const machines = Object.keys(cfg.mayCham).filter(m => cfg.mayCham[m].includes(k)).map(m => SRC_NAME[m] || m).join(", ");
     h += `<div><b>${esc(sh.ten)}</b> <span class="muted">(máy ${esc(machines || "–")}, nhận khi giờ vào từ ${sh.nhanDien[0]} đến ${t(sh.nhanDien[1])})</span><ul>`;
-    for (const d of Object.keys(sh.quyTac)) {
-      h += `<li>${dt[d] || d}: ` + sh.quyTac[d].map(([a, b, c, k]) => (b ? `${t(a)}–${t(b)} → ${c}%` : `sau ${t(a)} → ${c}%`) + (k === "TC" ? " (tăng ca)" : "")).join("; ") + `</li>`;
+    h += `<li>Bắt đầu ca ${t(sh.batDau)}${(sh.nghi || []).length ? ", nghỉ " + sh.nghi.map(([a, b]) => t(a) + "–" + t(b)).join(", ") : ""}. Giờ làm tính từ lúc vào (đến trước ${t(sh.batDau)} tính từ ${t(sh.batDau)}), trừ giờ nghỉ.</li>`;
+    for (const d of Object.keys(sh.bac)) {
+      let acc = 0;
+      h += `<li>${dt[d] || d}: ` + sh.bac[d].map(([n, c, k]) => {
+        const txt = n == null ? (acc ? `sau ${acc} tiếng` : "toàn bộ") + ` → ${c}%` : (acc ? `${n} tiếng tiếp` : `${n} tiếng đầu`) + ` → ${c}%`;
+        if (n != null) acc += n;
+        return txt + (k === "TC" ? " (tăng ca)" : "");
+      }).join("; ") + `</li>`;
     }
-    if (sh.diMuon && sh.diMuon.tinhLuot) h += `<li>Đi muộn: vào từ ${esc(sh.diMuon.tu)} trở đi tính 1 lượt đi muộn${sh.diMuon.khongTruCong ? ", không trừ phút vào giờ công" : ""}.</li>`;
+    if (sh.diMuon && sh.diMuon.tinhLuot) h += `<li>Đi muộn: vào từ ${esc(sh.diMuon.tu)} trở đi tính 1 lượt đi muộn${sh.diMuon.khongTruCong ? ", vẫn tính công từ " + t(sh.batDau) : ", giờ công tính từ lúc vào thực tế"}.</li>`;
     else h += `<li>Đi muộn: trừ theo số phút thực tế (quá ${cfg.treChoPhep} phút).</li>`;
     h += `</ul></div>`;
   }
@@ -1509,7 +1529,9 @@ function bind() {
         const sh = cfg.ca[k];
         [sh.batDau, sh.ketThuc, ...sh.nhanDien].forEach(hm);
         if (sh.diMuon) hm(sh.diMuon.tu);
-        for (const d of Object.keys(sh.quyTac)) sh.quyTac[d].forEach(([a, b]) => { hm(a); if (b != null) hm(b); });
+        (sh.nghi || []).forEach(([a, b]) => { hm(a); hm(b); });
+        if (!sh.bac || !sh.bac.thuong) throw new Error("Ca " + k + " thiếu bac.thuong");
+        for (const d of Object.keys(sh.bac)) sh.bac[d].forEach(([n, c]) => { if (n != null && !(n > 0)) throw new Error("Số giờ bậc phải > 0 (ca " + k + ")"); if (!cfg.cotHeSo.includes(String(c))) throw new Error("Cột hệ số " + c + " không có trong cotHeSo"); });
       }
       if (MODE === "server") await api("config", { method: "PUT", body: { cfg } });
       state.cfg = cfg; recomputeAll(); renderAll(); persist();
