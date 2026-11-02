@@ -38,6 +38,17 @@ Giữ cửa sổ server mở trong lúc mọi người dùng. Tắt bằng `Ctrl
 - **Tự chạy khi bật máy**: tạo shortcut tới `start-server.bat` trong thư mục `shell:startup`, hoặc dùng Task Scheduler (trigger "At log on").
 - Đổi cổng: `set PORT=8080` trước khi chạy `node server.js`.
 
+## Quên mật khẩu
+
+- **Nhân sự hoặc người chỉ xem quên mật khẩu:** Quản trị vào **Tài khoản**, nhập mật khẩu mới ở dòng của người đó rồi bấm **Đặt**.
+- **Quản trị quên mật khẩu:** làm trên máy server.
+  1. Tắt cửa sổ server.
+  2. Bấm đúp **`reset-mat-khau.bat`** và nhập tên đăng nhập. Hoặc chạy `node reset-password.js admin`, thêm mật khẩu mới vào cuối lệnh nếu muốn tự đặt.
+  3. Cửa sổ hiện mật khẩu mới. Tài khoản cũng được mở khoá nếu đang bị khoá do đăng nhập sai nhiều lần.
+  4. Chạy lại server.
+
+  Nhập tên chưa có thì công cụ tạo tài khoản Quản trị mới.
+
 ## Dữ liệu và sao lưu
 
 - Toàn bộ dữ liệu nằm trong thư mục **`data/`** cạnh `server.js`: `db.json` (tài khoản, kỳ công, các chỉnh sửa, cấu hình) và `backup/db-YYYY-MM-DD.json` (tự sao lưu mỗi ngày, giữ 60 bản gần nhất).
