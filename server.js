@@ -100,7 +100,9 @@ server.on("error", e => {
   else console.error(e);
   process.exit(1);
 });
+const PID_FILE = path.join(store.DATA_DIR, ".server.pid");
 server.listen(PORT, HOST, () => {
+  fs.writeFileSync(PID_FILE, String(process.pid));
   console.log("\n=== Máy chủ tính công đang chạy ===");
   console.log(`  Trên máy này:      http://localhost:${PORT}`);
   for (const ip of lanAddresses()) console.log(`  Máy khác trong LAN: http://${ip}:${PORT}`);
@@ -110,6 +112,11 @@ server.listen(PORT, HOST, () => {
   console.log("\n  Giữ cửa sổ này mở trong lúc mọi người dùng. Nhấn Ctrl+C để tắt.\n");
 });
 
-function shutdown() { try { store.flush(); } catch (e) { console.error(e); } process.exit(0); }
+function shutdown() {
+  try { store.flush(); } catch (e) { console.error(e); }
+  try { fs.unlinkSync(PID_FILE); } catch (e) { /* đã xoá */ }
+  process.exit(0);
+}
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+process.on("SIGHUP", shutdown);      // đóng cửa sổ cmd trên Windows
