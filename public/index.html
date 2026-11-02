@@ -1043,19 +1043,43 @@ function renderFiles() {
     const f = state.files[k], el = $("st" + k);
     if (!f) { el.className = "s"; el.textContent = "Kéo thả hoặc bấm để chọn file .xls / .xlsx / .csv"; continue; }
     const n = new Set(f.rows.map(r => r.code)).size;
+    const other = k === "SX" ? "VP" : "SX";
     el.className = "s ok";
-    el.textContent = "✓ " + f.name + " · " + f.rows.length + " dòng · " + n + " nhân viên";
+    el.innerHTML = esc("✓ " + f.name + " · " + f.rows.length + " dòng · " + n + " nhân viên") +
+      (canEdit() ? ` <button type="button" class="mini" data-move="${k}">${state.files[other] ? "Đổi chỗ 2 file" : "Chuyển sang " + (other === "SX" ? "máy sản xuất" : "máy văn phòng")}</button>` : "");
   }
   if (state.period) { $("pFrom").value = state.period.from; $("pTo").value = state.period.to; }
+}
+/* Tỷ lệ lượt vào sau 14:00 (ca đêm). File văn phòng mà tỷ lệ này cao thì nhiều khả năng nạp nhầm file máy sản xuất */
+function nightShare(f) {
+  const ins = f ? f.rows.filter(r => r.in != null) : [];
+  return ins.length ? ins.filter(r => r.in >= 840 || r.in < 240).length / ins.length : 0;
+}
+function wrongSlotWarning() {
+  const vp = state.files.VP, share = nightShare(vp);
+  if (!vp || share < 0.15) return "";
+  return `<div class="banner err"><span><b>File ở ô "Máy chấm công văn phòng" có vẻ là file máy sản xuất.</b> ${Math.round(share * 100)}% lượt vào sau 14:00 (ca đêm), trong khi ô văn phòng chỉ tính theo ca hành chính 08:00–17:00. Vì vậy giờ ca đêm đang bị tính thành 8h + tăng ca 150% và đi muộn sai.</span>${canEdit() ? `<button type="button" class="btn primary" data-move="VP">${state.files.SX ? "Đổi chỗ 2 file" : "Chuyển sang máy sản xuất"}</button>` : ""}</div>`;
+}
+async function moveFile(from) {
+  const to = from === "SX" ? "VP" : "SX";
+  const a = state.files[from], b = state.files[to];
+  const re = (f, src) => f ? { ...f, rows: f.rows.map(r => ({ ...r, src })) } : null;
+  state.files[to] = re(a, to); state.files[from] = re(b, from);
+  rebuild(); renderAll(); persist();
+  if (MODE === "server") {
+    setSync("Đang lưu…");
+    try { await savePeriod({ SX: compactFile(state.files.SX), VP: compactFile(state.files.VP) }); }
+    catch (e) { setSync("Chưa lưu được: " + e.message, "e"); }
+  }
 }
 function renderBanner() {
   if (MODE === "server" && !state.recs.length) {
     $("banner").innerHTML = `<div class="banner sample">${canEdit() ? "Chưa có kỳ công nào. Nạp file của máy sản xuất và máy văn phòng để tạo kỳ công; dữ liệu được lưu lên máy chủ cho mọi người cùng dùng." : "Chưa có kỳ công nào được nạp."}</div>`;
     return;
   }
-  $("banner").innerHTML = state.sample
+  $("banner").innerHTML = wrongSlotWarning() + (state.sample
     ? `<div class="banner sample"><b>Đang hiển thị dữ liệu mẫu.</b> Nạp file chấm công thật ở hai ô phía trên để thay thế. Dữ liệu mẫu sẽ tự xoá khi bạn nạp file đầu tiên.</div>`
-    : "";
+    : "");
 }
 function renderStats() {
   const rs = state.recs;
@@ -1335,6 +1359,12 @@ function bind() {
   $("pFrom").addEventListener("change", onPeriod);
   $("pTo").addEventListener("change", onPeriod);
 
+  // Nút chuyển file giữa 2 ô (nằm trong label của ô nạp file và trong cảnh báo)
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-move]"); if (!b) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if (canEdit()) moveFile(b.dataset.move);
+  }, true);
   $("stats").addEventListener("click", ev => {
     const b = ev.target.closest("[data-stat]"); if (!b) return;
     const k = b.dataset.stat;
