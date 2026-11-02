@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tính công máy chấm công</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: thanh công cụ trên cùng, cột trái danh sách nhân viên, cột phải bảng công chỉnh sửa trực tiếp */
+  --paper: #f4f6f3;
+  --surface: #ffffff;
+  --ink: #1c2620;
+  --muted: #5e6b63;
+  --line: #d6ddd7;
+  --accent: #2c7a4b;
+  --accent-soft: #e3f0e7;
+  --err: #b42318;
+  --err-soft: #fdecea;
+  --warn: #9a6200;
+  --warn-soft: #fdf3dc;
+  --info: #2f5f93;
+  --info-soft: #e7eef7;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #121714; --surface: #1a211d; --ink: #e4ebe6; --muted: #9aa8a0; --line: #2e3933;
+    --accent: #5cc08a; --accent-soft: #1d3527; --err: #ff8a80; --err-soft: #3a1e1c;
+    --warn: #f2c063; --warn-soft: #362b14; --info: #8ab6e8; --info-soft: #1b2a3b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #121714; --surface: #1a211d; --ink: #e4ebe6; --muted: #9aa8a0; --line: #2e3933;
+  --accent: #5cc08a; --accent-soft: #1d3527; --err: #ff8a80; --err-soft: #3a1e1c;
+  --warn: #f2c063; --warn-soft: #362b14; --info: #8ab6e8; --info-soft: #1b2a3b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1480px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+header.top h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+header.top p { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.imports { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop .t { font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.drop .s { color: var(--muted); font-size: 13px; }
+.drop .s.ok { color: var(--accent); }
+.drop .s.bad { color: var(--err); }
+.drop input { display: none; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); letter-spacing: .02em; }
+.period { display: grid; gap: 6px; align-content: start; }
+.period .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+label.f { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+input.in, select.in, textarea.in { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+textarea.in { font-family: var(--font-mono); font-size: 12.5px; width: 100%; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 7px 12px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+:root[data-theme="dark"] .btn.primary { color: #0d1a12; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0d1a12; } }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.danger { color: var(--err); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.banner { border-radius: 8px; padding: 9px 12px; font-size: 13px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.banner.sample { background: var(--info-soft); color: var(--info); }
+.banner.err { background: var(--err-soft); color: var(--err); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-left-width: 4px; border-radius: 8px; padding: 10px 12px; text-align: left; cursor: pointer; }
+.stat:hover { border-color: var(--accent); }
+.stat .n { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .l { color: var(--muted); font-size: 12.5px; }
+.stat.e { border-left-color: var(--err); } .stat.e .n { color: var(--err); }
+.stat.w { border-left-color: var(--warn); } .stat.w .n { color: var(--warn); }
+.stat.i { border-left-color: var(--info); }
+.stat.a { border-left-color: var(--accent); }
+.stat.on { outline: 2px solid var(--accent); }
+.main { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+.side { position: sticky; top: 10px; max-height: calc(100vh - 20px); display: grid; grid-template-rows: auto minmax(0,1fr); gap: 8px; padding: 10px; }
+@media (max-width: 900px) { .side { position: static; max-height: 320px; } }
+.emps { overflow: auto; display: grid; gap: 2px; align-content: start; }
+.emp { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; background: none; text-align: left; }
+.emp:hover { background: var(--paper); }
+.emp.on { background: var(--accent-soft); border-color: var(--accent); }
+.emp .nm { font-weight: 600; font-size: 13px; }
+.emp .cd { color: var(--muted); font-size: 11.5px; grid-column: 1; }
+.emp .bd { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 4px; align-items: center; }
+.pill { font-size: 11px; font-weight: 700; min-width: 20px; text-align: center; padding: 1px 6px; border-radius: 99px; font-variant-numeric: tabular-nums; }
+.pill.e { background: var(--err-soft); color: var(--err); }
+.pill.w { background: var(--warn-soft); color: var(--warn); }
+.pill.ok { background: var(--accent-soft); color: var(--accent); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; justify-content: space-between; }
+.tools .grp { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; margin-top: 10px; }
+table.tc { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.tc th { position: sticky; top: 0; background: var(--paper); font-weight: 600; font-size: 12px; color: var(--muted); text-align: center; padding: 7px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; z-index: 1; }
+table.tc td { padding: 3px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.tc td.n { text-align: right; font-family: var(--font-mono); font-size: 12.5px; min-width: 42px; }
+table.tc td.c { text-align: center; }
+table.tc tr.emp-start td { border-top: 2px solid var(--line); }
+table.tc tr.sun td { background: color-mix(in srgb, var(--info-soft) 55%, transparent); }
+table.tc tr.r-e td:first-child { box-shadow: inset 4px 0 0 var(--err); }
+table.tc tr.r-w td:first-child { box-shadow: inset 4px 0 0 var(--warn); }
+table.tc tr.r-e { background: var(--err-soft); }
+table.tc input.t { width: 62px; text-align: center; font-family: var(--font-mono); padding: 3px 4px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+table.tc input.t.miss { border-color: var(--err); background: var(--err-soft); }
+table.tc input.t.bad { border-color: var(--err); color: var(--err); }
+table.tc input.t.ed, table.tc select.ed, table.tc input.note.ed { border-color: var(--info); }
+table.tc select { padding: 3px 4px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); max-width: 120px; }
+table.tc input.note { width: 130px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+.st { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; white-space: normal; min-width: 180px; }
+.chip { font-size: 11.5px; padding: 1px 7px; border-radius: 99px; font-weight: 500; }
+.chip.e { background: var(--err-soft); color: var(--err); font-weight: 600; }
+.chip.w { background: var(--warn-soft); color: var(--warn); }
+.chip.i { background: var(--info-soft); color: var(--info); }
+.chip.ok { color: var(--accent); }
+.mini { font-size: 11.5px; padding: 1px 7px; border-radius: 5px; border: 1px solid var(--info); color: var(--info); background: var(--surface); cursor: pointer; }
+.pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 8px; color: var(--muted); font-size: 13px; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--font-mono); }
+.exportbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.exportbar .msg { font-size: 13px; }
+.exportbar .msg.e { color: var(--err); }
+.exportbar .msg.ok { color: var(--accent); }
+details.settings summary { cursor: pointer; font-weight: 600; }
+.setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 12px; }
+.rules { font-size: 13px; display: grid; gap: 8px; }
+.rules b { font-weight: 600; }
+.rules ul { margin: 2px 0 0; padding-left: 18px; }
+.empty { padding: 30px; text-align: center; color: var(--muted); }
+[hidden] { display: none !important; }
+.userbox { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.userbox .who { color: var(--muted); font-size: 13px; }
+.drop.off { opacity: .55; pointer-events: none; }
+.sync { font-size: 12.5px; color: var(--muted); }
+.sync.ok { color: var(--accent); } .sync.e { color: var(--err); }
+.login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.loginbox { width: min(380px, 100%); display: grid; gap: 12px; padding: 24px; }
+.loginbox h2 { font-size: 20px; }
+.loginbox .msg { color: var(--err); font-size: 13px; min-height: 1em; }
+table.tc input:disabled, table.tc select:disabled { opacity: .75; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="login" id="loginView" hidden>
+  <form class="panel loginbox" id="loginForm">
+    <h2>Đăng nhập</h2>
+    <p class="muted" style="margin:0">Tính công từ máy chấm công</p>
+    <label class="f" for="lUser">Tên đăng nhập<input class="in" id="lUser" autocomplete="username" required></label>
+    <label class="f" for="lPass">Mật khẩu<input class="in" id="lPass" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary" type="submit" id="lBtn">Đăng nhập</button>
+    <span class="msg" id="lMsg"></span>
+  </form>
+</div>
+<div class="wrap" id="appView">
+  <header class="top">
+    <div>
+      <h1>Tính công từ máy chấm công</h1>
+      <p>Nạp file Excel xuất từ máy chấm công sản xuất và văn phòng. Bảng bên dưới tô đỏ các dòng thiếu giờ vào hoặc ra để nhân sự bổ sung, sau đó xuất bảng công chi tiết cho từng nhân viên.</p>
+    </div>
+    <div class="userbox">
+      <span class="who" id="userInfo"></span>
+      <button class="btn" id="btnAccount" type="button" hidden>Tài khoản</button>
+      <button class="btn" id="btnLogout" type="button" hidden>Đăng xuất</button>
+      <button class="btn danger" id="btnClear" type="button">Xoá dữ liệu đang làm</button>
+    </div>
+  </header>
+
+  <section class="imports">
+    <label class="drop" id="dropSX" for="fileSX">
+      <span class="t"><span class="tag">SX</span> Máy chấm công sản xuất</span>
+      <span class="s" id="stSX">Kéo thả hoặc bấm để chọn file .xls / .xlsx / .csv</span>
+      <input type="file" id="fileSX" accept=".xls,.xlsx,.csv">
+    </label>
+    <label class="drop" id="dropVP" for="fileVP">
+      <span class="t"><span class="tag">VP</span> Máy chấm công văn phòng</span>
+      <span class="s" id="stVP">Kéo thả hoặc bấm để chọn file .xls / .xlsx / .csv</span>
+      <input type="file" id="fileVP" accept=".xls,.xlsx,.csv">
+    </label>
+    <div class="panel period">
+      <div class="row" id="pSelBox" hidden>
+        <label class="f" for="pSel" style="flex:1">Kỳ công đã lưu<select class="in" id="pSel"></select></label>
+      </div>
+      <span class="sync" id="pInfo"></span>
+      <div class="row">
+        <label class="f" for="pFrom">Từ ngày<input class="in" type="date" id="pFrom"></label>
+        <label class="f" for="pTo">Đến ngày<input class="in" type="date" id="pTo"></label>
+      </div>
+      <span class="muted" style="font-size:12px">Kỳ công tự lấy từ dòng "Từ ngày … đến ngày …" trong file. Sửa ở đây nếu cần.</span>
+      <span class="sync" id="syncMsg"></span>
+    </div>
+  </section>
+
+  <div id="banner"></div>
+
+  <section class="stats" id="stats"></section>
+
+  <section class="main">
+    <aside class="panel side">
+      <input class="in" id="q" type="search" placeholder="Tìm mã / tên nhân viên" aria-label="Tìm nhân viên">
+      <div class="emps" id="emps"></div>
+    </aside>
+    <div class="panel">
+      <div class="tools">
+        <div class="grp">
+          <label class="f" for="fStatus">Hiển thị
+            <select class="in" id="fStatus">
+              <option value="todo">Dòng cần xử lý</option>
+              <option value="err">Chỉ dòng thiếu giờ</option>
+              <option value="all">Tất cả các dòng</option>
+            </select>
+          </label>
+          <label class="f" for="fDept">Phòng ban
+            <select class="in" id="fDept"><option value="">Tất cả</option></select>
+          </label>
+          <button class="btn" type="button" id="btnMergeAll">Ghép giờ ra ca đêm</button>
+        </div>
+        <div class="exportbar">
+          <button class="btn primary" type="button" id="btnZip">Tải ZIP, mỗi nhân viên 1 file</button>
+          <button class="btn" type="button" id="btnBook">Tải 1 file tổng hợp</button>
+          <button class="btn" type="button" id="btnIssues">Tải danh sách cần bổ sung</button>
+          <button class="btn" type="button" id="btnOne" hidden>Tải file nhân viên này</button>
+        </div>
+      </div>
+      <div class="exportbar" style="margin-top:8px"><span class="msg" id="exportMsg"></span></div>
+      <div class="tablebox"><table class="tc" id="tbl"></table></div>
+      <div class="pager" id="pager"></div>
+    </div>
+  </section>
+
+  <details class="panel settings" id="settings">
+    <summary>Quy tắc tính công và cài đặt</summary>
+    <div class="setgrid">
+      <div class="rules" id="rulesText"></div>
+      <div style="display:grid;gap:10px;align-content:start">
+        <label class="f" for="sHolidays">Ngày lễ (mỗi dòng một ngày, dd/mm/yyyy)
+          <textarea class="in" id="sHolidays" rows="8"></textarea>
+        </label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <label class="f" for="sLeave">Giờ công / ngày nghỉ<input class="in" type="number" id="sLeave" min="0" step="0.5" style="width:110px"></label>
+          <label class="f" for="sLate">Đi trễ cho phép (phút)<input class="in" type="number" id="sLate" min="0" style="width:110px"></label>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <label class="f" for="sUp">Phút lẻ dưới mức này thì bỏ<input class="in" type="number" id="sUp" min="0" max="59" style="width:110px"></label>
+          <label class="f" for="sOt">Tăng ca tối thiểu (phút)<input class="in" type="number" id="sOt" min="0" style="width:110px"></label>
+        </div>
+      </div>
+      <div style="display:grid;gap:8px;align-content:start">
+        <label class="f" for="sJson">Ca làm việc và hệ số (JSON, dành cho người cài đặt)
+          <textarea class="in" id="sJson" rows="16" spellcheck="false"></textarea>
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn primary" type="button" id="btnApply">Áp dụng</button>
+          <button class="btn" type="button" id="btnReset">Khôi phục mặc định</button>
+          <span class="msg" id="setMsg" style="font-size:13px"></span>
+        </div>
+        <span class="muted" id="cfgNote" style="font-size:12.5px"></span>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel settings" id="accountPanel" hidden>
+    <summary>Tài khoản</summary>
+    <div class="setgrid">
+      <form id="pwForm" style="display:grid;gap:8px;align-content:start">
+        <b>Đổi mật khẩu của bạn</b>
+        <label class="f" for="pwOld">Mật khẩu hiện tại<input class="in" type="password" id="pwOld" autocomplete="current-password" required></label>
+        <label class="f" for="pwNew">Mật khẩu mới (tối thiểu 8 ký tự)<input class="in" type="password" id="pwNew" autocomplete="new-password" minlength="8" required></label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" type="submit">Đổi mật khẩu</button><span class="msg" id="pwMsg" style="font-size:13px"></span></div>
+      </form>
+      <div id="usersBox" style="grid-column: 1 / -1; display:none; gap:10px; align-content:start">
+        <b>Người dùng</b>
+        <div class="tablebox" style="margin:0"><table class="tc" id="usersTbl"></table></div>
+        <form id="userForm" style="display:flex;flex-wrap:wrap;gap:8px;align-items:end">
+          <label class="f" for="uName">Họ tên<input class="in" id="uName" required></label>
+          <label class="f" for="uUser">Tên đăng nhập<input class="in" id="uUser" required autocomplete="off"></label>
+          <label class="f" for="uRole">Vai trò<select class="in" id="uRole"><option value="hr">Nhân sự</option><option value="viewer">Chỉ xem</option><option value="admin">Quản trị</option></select></label>
+          <label class="f" for="uPass">Mật khẩu ban đầu<input class="in" id="uPass" type="password" minlength="8" required autocomplete="new-password"></label>
+          <button class="btn primary" type="submit">Thêm người dùng</button>
+          <span class="msg" id="uMsg" style="font-size:13px"></span>
+        </form>
+        <span class="muted" style="font-size:12.5px">Quản trị: đổi quy tắc tính công, quản lý tài khoản, xoá kỳ công. Nhân sự: nạp file, sửa giờ, xuất file. Chỉ xem: xem và xuất file.</span>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- Ưu tiên thư viện cài trên máy chủ (chạy được khi LAN không có Internet), thiếu thì tải từ CDN -->
+<script src="/vendor/xlsx.full.min.js"></script>
+<script src="/vendor/jszip.min.js"></script>
+<script>
+  if (typeof XLSX === "undefined") document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+  if (typeof JSZip === "undefined") document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>');
+</script>
+<script>
+"use strict";
+/* =========================================================================
+ *  1. CẤU HÌNH MẶC ĐỊNH
+ *  Quy tắc được suy ra từ bảng công tháng 09/2026:
+ *  - Ca ngày 07:00–16:00 (nghỉ trưa 11:00–12:00) = 8h 100%, sau 16:00 = tăng ca 150%
+ *  - Chủ nhật: toàn bộ giờ làm tính 200%
+ *  - Ca đêm 19:00–07:00: 19–23h 100% (4h), 00–04h 130% (4h), sau 04:00 = 210%, cột Đêm = 1
+ *  - Giờ làm: phút lẻ dưới 30 thì bỏ, từ 30 phút tính đúng số phút (ra 14:20 tính 14:00, 14:30 tính 14:30, 14:40 tính 14:40)
+ *  - Tăng ca (sau 8 tiếng đầu): dưới 30 phút không tính; từ 30 phút tính đúng số phút
+ * ========================================================================= */
+const DEFAULT_CFG = {
+  phienBan: 7,
+  gioNghi: 8,
+  treChoPhep: 5,
+  lamTron: { phutToiThieu: 30 },
+  // Tăng ca (khung giờ có đánh dấu "TC"): dưới 30 phút không tính, từ 30 phút tính đúng số phút thực tế
+  tangCa: { toiThieu: 30 },
+  ngayNghiTuan: [0],
+  ngayLe: ["2026-01-01", "2026-04-30", "2026-05-01", "2026-09-01", "2026-09-02", "2027-01-01"],
+  cotHeSo: ["100", "130", "150", "210", "200", "230", "300"],
+  anCotNeuTrong: ["300"],
+  mayCham: { SX: ["NGAY", "DEM"], VP: ["HC"] },
+  ca: {
+    NGAY: {
+      ten: "Ca ngày", nhanDien: ["04:00", "14:00"], batDau: "07:00", ketThuc: "16:00", caDem: false,
+      // Vào từ 08:01 trở đi tính 1 lượt đi muộn, không trừ phút vào giờ công
+      diMuon: { tu: "08:01", tinhLuot: true, khongTruCong: true },
+      quyTac: {
+        thuong:  [["07:00", "11:00", "100"], ["12:00", "16:00", "100"], ["16:00", null, "150", "TC"]],
+        chuNhat: [["07:00", "11:00", "200"], ["12:00", null, "200"]],
+        le:      [["07:00", "11:00", "300"], ["12:00", null, "300"]]
+      }
+    },
+    DEM: {
+      ten: "Ca đêm", nhanDien: ["14:00", "28:00"], batDau: "19:00", ketThuc: "28:00", caDem: true,
+      // Vào từ 22:01 trở đi tính 1 lượt đi muộn, không trừ phút vào giờ công
+      diMuon: { tu: "22:01", tinhLuot: true, khongTruCong: true },
+      quyTac: {
+        thuong:  [["19:00", "23:00", "100"], ["24:00", "28:00", "130"], ["28:00", null, "210", "TC"]],
+        chuNhat: [["19:00", "23:00", "230"], ["24:00", null, "230"]],
+        le:      [["19:00", "23:00", "300"], ["24:00", null, "300"]]
+      }
+    },
+    HC: {
+      ten: "Hành chính", nhanDien: ["00:00", "24:00"], batDau: "08:00", ketThuc: "17:00", caDem: false,
+      // Văn phòng: vào từ 08:01 trở đi tính 1 lượt đi muộn, không trừ phút vào giờ công
+      diMuon: { tu: "08:01", tinhLuot: true, khongTruCong: true },
+      quyTac: {
+        thuong:  [["08:00", "12:00", "100"], ["13:00", "17:00", "100"], ["17:00", null, "150", "TC"]],
+        chuNhat: [["08:00", "12:00", "200"], ["13:00", null, "200"]],
+        le:      [["08:00", "12:00", "300"], ["13:00", null, "300"]]
+      }
+    }
+  }
+};
+const LEAVES = ["NL", "NP", "NKL", "NKP"];
+const LEAVE_NAME = { NL: "Nghỉ lễ", NP: "Nghỉ phép", NKL: "Nghỉ không lương", NKP: "Nghỉ không phép" };
+const SRC_NAME = { SX: "Sản xuất", VP: "Văn phòng" };
+
+/* =========================================================================
+ *  2. TIỆN ÍCH NGÀY / GIỜ
+ * ========================================================================= */
+const pad = n => String(n).padStart(2, "0");
+function hm(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s).trim());
+  if (!m) throw new Error("Giờ không hợp lệ: " + s);
+  return +m[1] * 60 + +m[2];
+}
+function fmtHM(m) {
+  if (m == null) return "";
+  m = ((m % 1440) + 1440) % 1440;
+  return pad(Math.floor(m / 60)) + ":" + pad(m % 60);
+}
+function parseHMInput(s) {
+  s = String(s || "").trim();
+  if (!s) return null;
+  let m = /^(\d{1,2})[:hH.]?(\d{2})$/.exec(s) || /^(\d{1,2})$/.exec(s);
+  if (!m) return NaN;
+  const h = +m[1], mi = m[2] ? +m[2] : 0;
+  if (h > 23 || mi > 59) return NaN;
+  return h * 60 + mi;
+}
+function isoFromYMD(y, m, d) { return y + "-" + pad(m) + "-" + pad(d); }
+function isoToParts(iso) { const [y, m, d] = iso.split("-").map(Number); return { y, m, d }; }
+function dowOf(iso) { const { y, m, d } = isoToParts(iso); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); }
+function addDays(iso, n) { const { y, m, d } = isoToParts(iso); const t = new Date(Date.UTC(y, m - 1, d + n)); return isoFromYMD(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()); }
+function vnDate(iso) { const { y, m, d } = isoToParts(iso); return pad(d) + "/" + pad(m) + "/" + y; }
+function thuLabel(iso) { const w = dowOf(iso); return w === 0 ? "CN" : "T." + (w + 1); }
+function excelSerial(iso) { const { y, m, d } = isoToParts(iso); return (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000; }
+function serialToIso(n) { const t = new Date(Date.UTC(1899, 11, 30) + Math.floor(n) * 86400000); return isoFromYMD(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()); }
+function parseVnDate(s) {
+  s = String(s).trim();
+  let m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/.exec(s);
+  if (m) return isoFromYMD(+m[3], +m[2], +m[1]);
+  m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  if (m) return isoFromYMD(+m[1], +m[2], +m[3]);
+  return null;
+}
+function cellDate(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return v > 59 ? serialToIso(v) : null;
+  if (v instanceof Date) return isoFromYMD(v.getFullYear(), v.getMonth() + 1, v.getDate());
+  return parseVnDate(v);
+}
+function cellTime(v) {
+  if (v == null) return null;
+  if (typeof v === "number") { const frac = v - Math.floor(v); return Math.round(frac * 1440) % 1440; }
+  if (v instanceof Date) return v.getHours() * 60 + v.getMinutes();
+  const s = String(v).trim();
+  if (!s || s === "-" || s === "--") return null;
+  const m = /(\d{1,2}):(\d{2})/.exec(s);
+  return m ? (+m[1] * 60 + +m[2]) % 1440 : null;
+}
+function norm(s) {
+  return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().replace(/[^a-z0-9%]/g, "");
+}
+function slug(s) { return norm(String(s).replace(/\s+/g, "_")).replace(/^_+|_+$/g, "") || "nv"; }
+function slugName(s) {
+  return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D")
+    .replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* =========================================================================
+ *  3. ĐỌC FILE CHẤM CÔNG → danh sách dòng {code,name,dept,pos,date,in,out}
+ * ========================================================================= */
+function parseAOA(aoa, src) {
+  let hr = -1;
+  for (let i = 0; i < Math.min(aoa.length, 25); i++) {
+    const r = (aoa[i] || []).map(norm);
+    if (r.some(c => c.startsWith("ma")) && r.some(c => c === "vao" || c.startsWith("giovao") || /^vao\d$/.test(c))) { hr = i; break; }
+  }
+  if (hr < 0) throw new Error('Không tìm thấy dòng tiêu đề có cột "Mã N.Viên" và "Vào". Kiểm tra lại file xuất từ máy chấm công.');
+  const H = aoa[hr].map(norm);
+  const find = pred => H.findIndex(pred);
+  const col = {
+    code: find(c => c.startsWith("ma")),
+    name: find(c => c.startsWith("ten") || c.startsWith("hoten")),
+    dept: find(c => c.startsWith("phongban") || c.startsWith("bophan")),
+    pos: find(c => c.startsWith("chucvu")),
+    date: find(c => c === "ngay" || c === "ngaycham" || c === "ngaycong")
+  };
+  const ins = [], outs = [];
+  H.forEach((c, i) => {
+    if (c === "vao" || /^vao\d$/.test(c) || c.startsWith("giovao")) ins.push(i);
+    if (c === "ra" || /^ra\d$/.test(c) || c.startsWith("giora")) outs.push(i);
+  });
+  if (col.date < 0) throw new Error('Không thấy cột "Ngày" trong file.');
+  if (!outs.length) throw new Error('Không thấy cột "Ra" trong file.');
+
+  // Kỳ công trong dòng "Từ ngày dd/mm/yyyy đến ngày dd/mm/yyyy"
+  let period = null;
+  for (let i = 0; i < hr; i++) {
+    const txt = (aoa[i] || []).filter(Boolean).join(" ");
+    const m = /(\d{1,2}\/\d{1,2}\/\d{4}).*?(\d{1,2}\/\d{1,2}\/\d{4})/.exec(txt);
+    if (m) { period = { from: parseVnDate(m[1]), to: parseVnDate(m[2]) }; break; }
+  }
+
+  const rows = [];
+  let last = null;
+  for (let i = hr + 1; i < aoa.length; i++) {
+    const r = aoa[i] || [];
+    const date = cellDate(r[col.date]);
+    if (!date) continue;
+    let code = String(r[col.code] == null ? "" : r[col.code]).trim();
+    let name = col.name >= 0 ? String(r[col.name] || "").trim() : "";
+    // Một số máy chỉ ghi mã/tên ở dòng đầu của mỗi nhân viên
+    if (!code && last) { code = last.code; name = name || last.name; }
+    if (!code) continue;
+    const tIn = ins.map(c => cellTime(r[c])).filter(v => v != null);
+    const tOut = outs.map(c => cellTime(r[c])).filter(v => v != null);
+    const row = {
+      code, name: name || (last && last.code === code ? last.name : ""),
+      dept: col.dept >= 0 ? String(r[col.dept] || "").trim() : "",
+      pos: col.pos >= 0 ? String(r[col.pos] || "").trim() : "",
+      date, in: tIn.length ? tIn[0] : null, out: tOut.length ? tOut[tOut.length - 1] : null, src
+    };
+    rows.push(row); last = row;
+  }
+  if (!rows.length) throw new Error("File không có dòng dữ liệu nào có ngày hợp lệ.");
+  if (!period) {
+    const ds = rows.map(r => r.date).sort();
+    period = { from: ds[0], to: ds[ds.length - 1] };
+  }
+  return { rows, period };
+}
+
+function readWorkbook(buf, src) {
+  if (typeof XLSX === "undefined") throw new Error("Chưa tải được thư viện đọc Excel (SheetJS). Kiểm tra kết nối mạng rồi tải lại trang.");
+  const wb = XLSX.read(buf, { type: "array", raw: true, cellDates: false });
+  let lastErr = null;
+  for (const n of wb.SheetNames) {
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null, blankrows: false });
+    try { return parseAOA(aoa, src); } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error("File trống.");
+}
+
+/* =========================================================================
+ *  4. TÍNH CÔNG MỘT DÒNG
+ * ========================================================================= */
+/* Giờ làm: phần phút lẻ (sau số giờ chẵn) dưới mức tối thiểu thì bỏ, đạt mức thì tính đúng số phút.
+   Ví dụ mức 30: 6h20 → 6h; 6h30 → 6,5h; 6h40 → 6,67h */
+function roundH(min, cfg) {
+  const u = cfg.lamTron.phutToiThieu;
+  const rem = min % 60;
+  const kept = Math.floor(min / 60) * 60 + (rem >= u ? rem : 0);
+  return Math.round(kept / 60 * 10000) / 10000;
+}
+function inWin(m, w) { const a = hm(w[0]), b = hm(w[1]); return (m >= a && m < b) || (m + 1440 >= a && m + 1440 < b); }
+function dayTypeOf(iso, cfg, hol) {
+  if (hol.has(iso)) return "le";
+  if (cfg.ngayNghiTuan.includes(dowOf(iso))) return "chuNhat";
+  return "thuong";
+}
+
+function computeRec(rec, cfg, hol) {
+  const dayType = dayTypeOf(rec.date, cfg, hol);
+  const res = { dayType, cols: {}, dem: 0, leave: {}, issues: [], shiftKey: null, autoLeave: null, hours: 0, lateCount: 0 };
+  const add = (level, code, msg) => res.issues.push({ level, code, msg });
+  const hasIn = rec.in != null, hasOut = rec.out != null;
+  let leave = rec.leave || "";
+
+  if (!hasIn && !hasOut) {
+    if (!leave && dayType === "le") { leave = "NL"; res.autoLeave = "NL"; }
+    if (leave) res.leave[leave] = cfg.gioNghi;
+    else if (dayType === "thuong") add("w", "ABSENT", "Vắng, chưa có lý do");
+    return res;
+  }
+  if (leave) { res.leave[leave] = cfg.gioNghi; add("w", "LEAVE_PUNCH", "Đã chọn nghỉ nhưng vẫn có giờ chấm"); }
+  if (!hasIn) add("e", "MISS_IN", "Thiếu giờ vào");
+  if (!hasOut) add("e", "MISS_OUT", "Thiếu giờ ra");
+  if (!hasIn || !hasOut) return res;
+
+  // Xác định ca
+  const allowed = rec.shift ? [rec.shift] : (cfg.mayCham[rec.src] || cfg.mayCham.SX || Object.keys(cfg.ca));
+  let key = null, inAbs = null;
+  for (const k of allowed) {
+    const sh = cfg.ca[k];
+    if (!sh) continue;
+    if (rec.shift) { key = k; inAbs = rec.in < hm(sh.batDau) - 720 ? rec.in + 1440 : rec.in; break; }
+    if (inWin(rec.in, sh.nhanDien)) { key = k; inAbs = rec.in >= hm(sh.nhanDien[0]) ? rec.in : rec.in + 1440; break; }
+  }
+  if (!key) { add("e", "NOSHIFT", "Giờ vào " + fmtHM(rec.in) + " không khớp ca nào"); return res; }
+  const sh = cfg.ca[key];
+  res.shiftKey = key;
+  let outAbs = rec.out;
+  while (outAbs <= inAbs) outAbs += 1440;
+  const dur = outAbs - inAbs;
+  if (dur > 16 * 60) add("w", "LONG", "Ca dài bất thường (" + (dur / 60).toFixed(1) + "h)");
+  else if (dur < 120) add("w", "SHORT", "Ca quá ngắn (" + dur + " phút)");
+
+  const start = hm(sh.batDau), end = hm(sh.ketThuc);
+  if (sh.diMuon && sh.diMuon.tinhLuot) {
+    if (inAbs >= hm(sh.diMuon.tu)) { res.lateCount = 1; add("i", "LATE", "Đi muộn (1 lượt)"); }
+    if (sh.diMuon.khongTruCong && inAbs > start) inAbs = start;
+  } else if (inAbs > start) {
+    const late = inAbs - start;
+    if (late <= cfg.treChoPhep) inAbs = start;
+    else add("i", "LATE", "Đi muộn " + late + " phút");
+  }
+  if (outAbs < end && dayType === "thuong") add("i", "EARLY", "Về sớm " + (end - outAbs) + " phút");
+
+  const segs = sh.quyTac[dayType] || sh.quyTac.thuong;
+  const mins = {}, otMins = {};
+  for (const [s, e, c, kind] of segs) {
+    const S = hm(s), E = e == null ? Infinity : hm(e);
+    const ov = Math.min(outAbs, E) - Math.max(inAbs, S);
+    if (ov <= 0) continue;
+    if (kind === "TC") otMins[c] = (otMins[c] || 0) + ov;
+    else mins[c] = (mins[c] || 0) + ov;
+  }
+  const otMin = (cfg.tangCa && cfg.tangCa.toiThieu) || 0;
+  let total = 0, otTotal = 0;
+  for (const c in otMins) otTotal += otMins[c];
+  for (const c in mins) res.cols[c] = roundH(mins[c], cfg);
+  // Tăng ca: tổng phút tăng ca phải đạt mức tối thiểu; phút lẻ sau giờ chẵn dưới 30 thì bỏ, từ 30 tính đúng phút
+  if (otTotal >= otMin) for (const c in otMins) res.cols[c] = Math.round(((res.cols[c] || 0) + roundH(otMins[c], cfg)) * 10000) / 10000;
+  else if (otTotal > 0) add("i", "OT_SHORT", "Tăng ca " + otTotal + " phút (< " + otMin + "p, không tính)");
+  res.otMinutes = otTotal >= otMin ? otTotal : 0;
+  for (const c in res.cols) { if (!res.cols[c]) delete res.cols[c]; else total += res.cols[c]; }
+  res.hours = total;
+  if (sh.caDem && total > 0) res.dem = 1;
+  return res;
+}
+
+/* Gợi ý ghép: giờ ra ca đêm bị máy ghi sang dòng ngày hôm sau */
+function findNightMerges(recs, cfg) {
+  const nightKeys = Object.keys(cfg.ca).filter(k => cfg.ca[k].caDem);
+  const byKey = new Map(recs.map(r => [r.code + "|" + r.date, r]));
+  const out = [];
+  for (const cur of recs) {
+    const single = (cur.in != null) !== (cur.out != null);
+    if (!single) continue;
+    const t = cur.in != null ? cur.in : cur.out;
+    if (t >= 720) continue;
+    const prev = byKey.get(cur.code + "|" + addDays(cur.date, -1));
+    if (!prev || prev.in == null || prev.out != null) continue;
+    const okNight = nightKeys.some(k => inWin(prev.in, cfg.ca[k].nhanDien) && prev.in >= 720);
+    if (!okNight) continue;
+    out.push({ prevId: prev.id, curId: cur.id, t });
+  }
+  return out;
+}
+
+/* =========================================================================
+ *  5. GHI FILE XLSX CÓ ĐỊNH DẠNG (tự viết trên JSZip)
+ * ========================================================================= */
+const XW = (() => {
+  const x = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+  const colL = n => { let s = ""; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const S = { def: 0, title: 1, sub: 2, head: 3, txt: 4, txtC: 5, date: 6, num: 7, totL: 8, totN: 9, eTxt: 10, eTxtC: 11, eDate: 12, eNum: 13, eNote: 14, sunTxt: 15, sunTxtC: 16, sunDate: 17, sunNum: 18 };
+  const B = 'applyBorder="1" borderId="1"';
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="0.0#;\\-0.0#;&quot;-&quot;"/></numFmts>
+<fonts count="5">
+<font><sz val="11"/><name val="Times New Roman"/><family val="1"/></font>
+<font><b/><sz val="14"/><name val="Times New Roman"/><family val="1"/></font>
+<font><b/><i/><sz val="11"/><name val="Times New Roman"/><family val="1"/></font>
+<font><b/><sz val="11"/><name val="Times New Roman"/><family val="1"/></font>
+<font><sz val="11"/><color rgb="FFC00000"/><name val="Times New Roman"/><family val="1"/></font>
+</fonts>
+<fills count="6">
+<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF92D050"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFDE2DF"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE2EFDA"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>
+</fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>
+<border><left style="thin"><color rgb="FF808080"/></left><right style="thin"><color rgb="FF808080"/></right><top style="hair"><color rgb="FF808080"/></top><bottom style="hair"><color rgb="FF808080"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="19">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="3" fillId="2" ${B} xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" ${B} xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" ${B} xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="164" fontId="0" fillId="0" ${B} xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="165" fontId="0" fillId="0" ${B} xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+<xf numFmtId="0" fontId="3" fillId="4" ${B} xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="165" fontId="3" fillId="4" ${B} xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="3" ${B} xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="3" ${B} xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="164" fontId="0" fillId="3" ${B} xfId="0" applyNumberFormat="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="165" fontId="0" fillId="3" ${B} xfId="0" applyNumberFormat="1" applyFill="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+<xf numFmtId="0" fontId="4" fillId="3" ${B} xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="5" ${B} xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="5" ${B} xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="164" fontId="0" fillId="5" ${B} xfId="0" applyNumberFormat="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="165" fontId="0" fillId="5" ${B} xfId="0" applyNumberFormat="1" applyFill="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+
+  function cellXml(ref, c) {
+    if (c == null) return "";
+    if (typeof c !== "object") c = { v: c };
+    const s = c.s ? ` s="${c.s}"` : "";
+    if (c.f) return `<c r="${ref}"${s}><f>${x(c.f)}</f>${c.v != null ? `<v>${c.v}</v>` : ""}</c>`;
+    if (c.v == null || c.v === "") return `<c r="${ref}"${s}/>`;
+    if (typeof c.v === "number") return `<c r="${ref}"${s}><v>${c.v}</v></c>`;
+    return `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${x(c.v)}</t></is></c>`;
+  }
+  function sheetXml(sh) {
+    const nCols = Math.max(...sh.rows.map(r => r.length), 1);
+    const lastRef = colL(nCols - 1) + Math.max(sh.rows.length, 1);
+    let o = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`;
+    o += `<sheetPr>${sh.autoFilter ? "" : ""}<pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${lastRef}"/>`;
+    o += `<sheetViews><sheetView workbookViewId="0"${sh.zoom ? ` zoomScale="${sh.zoom}"` : ""}>`;
+    if (sh.freezeRows) o += `<pane ySplit="${sh.freezeRows}" topLeftCell="A${sh.freezeRows + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${sh.freezeRows + 1}" sqref="A${sh.freezeRows + 1}"/>`;
+    o += `</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>`;
+    if (sh.cols) o += "<cols>" + sh.cols.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("") + "</cols>";
+    o += "<sheetData>";
+    sh.rows.forEach((r, ri) => {
+      const ht = sh.heights && sh.heights[ri + 1];
+      o += `<row r="${ri + 1}"${ht ? ` ht="${ht}" customHeight="1"` : ""}>`;
+      r.forEach((c, ci) => { o += cellXml(colL(ci) + (ri + 1), c); });
+      o += "</row>";
+    });
+    o += "</sheetData>";
+    if (sh.autoFilter) o += `<autoFilter ref="${sh.autoFilter}"/>`;
+    if (sh.merges && sh.merges.length) o += `<mergeCells count="${sh.merges.length}">` + sh.merges.map(m => `<mergeCell ref="${m}"/>`).join("") + "</mergeCells>";
+    o += `<pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/>`;
+    o += `<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>`;
+    o += "</worksheet>";
+    return o;
+  }
+  function safeSheetName(n, used) {
+    let s = String(n).replace(/[\[\]:*?\/\\]/g, " ").slice(0, 31).trim() || "Sheet";
+    let k = s, i = 2;
+    while (used.has(k.toLowerCase())) { const suf = " (" + i++ + ")"; k = s.slice(0, 31 - suf.length) + suf; }
+    used.add(k.toLowerCase());
+    return k;
+  }
+  async function build(sheets) {
+    const zip = new JSZip();
+    const used = new Set();
+    sheets.forEach(s => { s._name = safeSheetName(s.name, used); });
+    zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`);
+    zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`);
+    zip.file("docProps/core.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Chi tiết chấm công</dc:title><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>`);
+    const defs = sheets.map((s, i) => s.autoFilter ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${s._name.replace(/'/g, "''")}'!${s.autoFilter.replace(/([A-Z]+)(\d+)/g, "$$$1$$$2")}</definedName>` : "").join("");
+    zip.file("xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${sheets.map((s, i) => `<sheet name="${x(s._name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets>${defs ? `<definedNames>${defs}</definedNames>` : ""}<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`);
+    zip.file("xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+    zip.file("xl/styles.xml", stylesXml);
+    sheets.forEach((s, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s)));
+    return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", compression: "DEFLATE" });
+  }
+  return { build, colL, S };
+})();
+
+/* =========================================================================
+ *  6. DỰNG SHEET XUẤT RA (theo mẫu bảng công chi tiết)
+ * ========================================================================= */
+function visibleRateCols(recs) {
+  const cfg = state.cfg;
+  return cfg.cotHeSo.filter(c => !cfg.anCotNeuTrong.includes(c) || recs.some(r => r.calc.cols[c]));
+}
+/* Nhân viên thuộc máy có ca tính "lượt đi muộn" (mặc định: văn phòng) thì có thêm cột Đi muộn */
+function tracksLateCount(srcs) {
+  const cfg = state.cfg;
+  return srcs.some(s => (cfg.mayCham[s] || []).some(k => cfg.ca[k] && cfg.ca[k].diMuon && cfg.ca[k].diMuon.tinhLuot));
+}
+function noteOf(r) {
+  if (r.note) return r.note;
+  const lv = r.leave || r.calc.autoLeave;
+  if (lv) return lv;
+  const e = r.calc.issues.filter(i => i.level === "e");
+  if (e.length) return e.map(i => i.msg).join("; ");
+  const w = r.calc.issues.find(i => i.code === "ABSENT");
+  return w ? "Vắng" : "-";
+}
+function employeeSheet(emp, recs, rateCols) {
+  const S = XW.S;
+  const late = tracksLateCount(emp.srcs);
+  const head = ["Mã N.Viên", "Tên N.Viên", "Phòng ban", "Chức vụ", "Ngày", "Thứ", "Vào", "Ra", ...rateCols.map(c => c + "%"), "Đêm", "Ghi Chú", ...LEAVES, ...(late ? ["Đi muộn"] : [])];
+  const nC = head.length;
+  const L = XW.colL(nC - 1);
+  const rows = [
+    [{ v: "CHI TIẾT CHẤM CÔNG", s: S.title }],
+    [{ v: "Từ ngày " + vnDate(state.period.from) + " đến ngày " + vnDate(state.period.to), s: S.sub }],
+    head.map(h => ({ v: h, s: S.head }))
+  ];
+  const first = 4;
+  for (const r of recs) {
+    const err = r.calc.issues.some(i => i.level === "e");
+    const sun = !err && r.calc.dayType !== "thuong";
+    const st = err ? { t: S.eTxt, c: S.eTxtC, d: S.eDate, n: S.eNum } : sun ? { t: S.sunTxt, c: S.sunTxtC, d: S.sunDate, n: S.sunNum } : { t: S.txt, c: S.txtC, d: S.date, n: S.num };
+    const lv = Object.assign({}, r.calc.leave);
+    rows.push([
+      { v: emp.code, s: st.t }, { v: emp.name, s: st.t }, { v: emp.dept, s: st.t }, { v: emp.pos, s: st.t },
+      { v: excelSerial(r.date), s: st.d }, { v: thuLabel(r.date), s: st.c },
+      { v: fmtHM(r.in), s: st.c }, { v: fmtHM(r.out), s: st.c },
+      ...rateCols.map(c => ({ v: r.calc.cols[c] || 0, s: st.n })),
+      { v: r.calc.dem || 0, s: st.n },
+      { v: noteOf(r), s: err ? S.eNote : st.c },
+      ...LEAVES.map(k => ({ v: lv[k] || 0, s: st.n })),
+      ...(late ? [{ v: r.calc.lateCount || 0, s: st.n }] : [])
+    ]);
+  }
+  const last = rows.length;
+  const tot = [{ v: "Tổng", s: S.totL }];
+  for (let i = 1; i < 8; i++) tot.push({ v: "", s: S.totL });
+  const numIdx = [];
+  for (let i = 8; i < nC; i++) {
+    if (head[i] === "Ghi Chú") { tot.push({ v: "", s: S.totL }); continue; }
+    numIdx.push(i);
+    const L2 = XW.colL(i);
+    const sum = rows.slice(first - 1).reduce((a, r) => a + (typeof r[i].v === "number" ? r[i].v : 0), 0);
+    tot.push({ f: `SUM(${L2}${first}:${L2}${last})`, v: Math.round(sum * 100) / 100, s: S.totN });
+  }
+  rows.push(tot);
+  const widths = [11, 22, 13, 12, 11, 5, 7, 7, ...rateCols.map(() => 7), 6, 20, 6, 6, 6, 6, ...(late ? [8] : [])];
+  return {
+    name: emp.code + " " + emp.name, rows, cols: widths, freezeRows: 3,
+    merges: [`A1:${L}1`, `A2:${L}2`, `A${rows.length}:H${rows.length}`],
+    autoFilter: `A3:${L}${last}`, heights: { 1: 24, 2: 18, 3: 30 }
+  };
+}
+function summarySheet(emps) {
+  const S = XW.S;
+  const all = state.recs;
+  const rateCols = visibleRateCols(all);
+  const head = ["Mã N.Viên", "Tên N.Viên", "Phòng ban", "Chức vụ", "Máy", ...rateCols.map(c => c + "%"), "Đêm", ...LEAVES, "Lượt đi muộn", "Ngày có công", "Dòng thiếu giờ"];
+  const L = XW.colL(head.length - 1);
+  const rows = [
+    [{ v: "TỔNG HỢP CÔNG", s: S.title }],
+    [{ v: "Từ ngày " + vnDate(state.period.from) + " đến ngày " + vnDate(state.period.to), s: S.sub }],
+    head.map(h => ({ v: h, s: S.head }))
+  ];
+  for (const e of emps) {
+    const rs = state.byEmp.get(e.code);
+    const sum = c => rs.reduce((a, r) => a + (r.calc.cols[c] || 0), 0);
+    const errs = rs.filter(r => r.calc.issues.some(i => i.level === "e")).length;
+    rows.push([
+      { v: e.code, s: S.txt }, { v: e.name, s: S.txt }, { v: e.dept, s: S.txt }, { v: e.pos, s: S.txt }, { v: e.srcs.join("+"), s: S.txtC },
+      ...rateCols.map(c => ({ v: sum(c), s: S.num })),
+      { v: rs.reduce((a, r) => a + r.calc.dem, 0), s: S.num },
+      ...LEAVES.map(k => ({ v: rs.reduce((a, r) => a + (r.calc.leave[k] || 0), 0), s: S.num })),
+      tracksLateCount(e.srcs) ? { v: rs.reduce((a, r) => a + (r.calc.lateCount || 0), 0), s: S.num } : { v: "", s: S.txtC },
+      { v: rs.filter(r => r.calc.hours > 0).length, s: S.num },
+      { v: errs, s: errs ? S.eNum : S.num }
+    ]);
+  }
+  return {
+    name: "Tổng hợp", rows, freezeRows: 3, merges: [`A1:${L}1`, `A2:${L}2`], autoFilter: `A3:${L}${rows.length}`,
+    cols: [11, 24, 14, 12, 7, ...rateCols.map(() => 8), 7, 6, 6, 6, 6, 10, 10, 10], heights: { 1: 24, 3: 30 }
+  };
+}
+function issuesSheet() {
+  const S = XW.S;
+  const head = ["Mã N.Viên", "Tên N.Viên", "Phòng ban", "Máy", "Ngày", "Thứ", "Vào", "Ra", "Vấn đề", "Mức độ", "Giờ đúng (nhân sự điền)"];
+  const rows = [
+    [{ v: "DANH SÁCH CẦN BỔ SUNG GIỜ CHẤM CÔNG", s: S.title }],
+    [{ v: "Từ ngày " + vnDate(state.period.from) + " đến ngày " + vnDate(state.period.to), s: S.sub }],
+    head.map(h => ({ v: h, s: S.head }))
+  ];
+  for (const r of state.recs) {
+    const iss = r.calc.issues.filter(i => i.level !== "i");
+    if (!iss.length) continue;
+    const e = iss.some(i => i.level === "e");
+    rows.push([
+      { v: r.code, s: S.txt }, { v: r.name, s: S.txt }, { v: r.dept, s: S.txt }, { v: r.src, s: S.txtC },
+      { v: excelSerial(r.date), s: S.date }, { v: thuLabel(r.date), s: S.txtC },
+      { v: fmtHM(r.in), s: S.txtC }, { v: fmtHM(r.out), s: S.txtC },
+      { v: iss.map(i => i.msg).join("; "), s: e ? S.eNote : S.txt }, { v: e ? "Lỗi" : "Cảnh báo", s: S.txtC }, { v: "", s: S.txt }
+    ]);
+  }
+  return { name: "Cần bổ sung", rows, freezeRows: 3, merges: ["A1:K1", "A2:K2"], autoFilter: `A3:K${rows.length}`, cols: [11, 24, 14, 6, 11, 5, 7, 7, 40, 10, 22], heights: { 1: 24, 3: 30 } };
+}
+
+/* =========================================================================
+ *  7. TRẠNG THÁI ỨNG DỤNG
+ * ========================================================================= */
+const STORE_KEY = "tinhcong.v1";
+const state = {
+  cfg: JSON.parse(JSON.stringify(DEFAULT_CFG)),
+  files: { SX: null, VP: null },     // {name, rows, period}
+  period: null,                      // {from, to}
+  edits: {},                         // key code|date → {in,out,leave,note,shift}
+  recs: [], byEmp: new Map(), emps: [], merges: [],
+  sample: false,
+  view: { emp: "", q: "", status: "todo", dept: "", page: 0, stat: "" }
+};
+const PAGE = 250;
+
+function holidaySet() { return new Set(state.cfg.ngayLe); }
+
+function rebuild() {
+  const files = ["SX", "VP"].filter(k => state.files[k]);
+  const map = new Map();
+  const empInfo = new Map();
+  for (const src of files) {
+    for (const row of state.files[src].rows) {
+      const key = row.code + "|" + row.date;
+      const cur = map.get(key);
+      if (!cur) map.set(key, { ...row, srcs: [src], raw: { in: row.in, out: row.out } });
+      else {
+        // Nhân viên chấm ở cả 2 máy cùng ngày: giữ giờ vào sớm nhất, giờ ra muộn nhất
+        if (!cur.srcs.includes(src)) cur.srcs.push(src);
+        if (row.in != null && (cur.in == null || row.in < cur.in)) cur.in = row.in;
+        if (row.out != null && (cur.out == null || row.out > cur.out)) cur.out = row.out;
+        cur.raw = { in: cur.in, out: cur.out };
+      }
+      const ei = empInfo.get(row.code) || { code: row.code, name: row.name, dept: row.dept, pos: row.pos, srcs: [] };
+      if (!ei.srcs.includes(src)) ei.srcs.push(src);
+      if (!ei.name && row.name) ei.name = row.name;
+      if (!ei.dept && row.dept) ei.dept = row.dept;
+      if (!ei.pos && row.pos) ei.pos = row.pos;
+      empInfo.set(row.code, ei);
+    }
+  }
+  if (!state.period && files.length) {
+    const ps = files.map(k => state.files[k].period);
+    state.period = { from: ps.map(p => p.from).sort()[0], to: ps.map(p => p.to).sort().reverse()[0] };
+  }
+  const recs = [];
+  const emps = [...empInfo.values()].sort((a, b) => a.code.localeCompare(b.code, "vi", { numeric: true }));
+  let id = 0;
+  if (state.period) {
+    for (const e of emps) {
+      for (let d = state.period.from; d <= state.period.to; d = addDays(d, 1)) {
+        const key = e.code + "|" + d;
+        const base = map.get(key);
+        const r = {
+          id: id++, key, code: e.code, name: e.name, dept: e.dept, pos: e.pos, date: d,
+          src: base ? base.srcs[0] : e.srcs[0], srcs: base ? base.srcs : [],
+          in: base ? base.in : null, out: base ? base.out : null,
+          raw: base ? base.raw : { in: null, out: null },
+          leave: "", note: "", shift: ""
+        };
+        const ed = state.edits[key];
+        if (ed) Object.assign(r, ed);
+        recs.push(r);
+      }
+    }
+  }
+  state.recs = recs;
+  state.emps = emps;
+  recomputeAll();
+}
+
+function recomputeAll() {
+  const hol = holidaySet();
+  for (const r of state.recs) {
+    r.calc = computeRec(r, state.cfg, hol);
+    if (r.srcs.length > 1) r.calc.issues.push({ level: "i", code: "BOTH", msg: "Chấm ở cả 2 máy" });
+  }
+  state.merges = findNightMerges(state.recs, state.cfg);
+  const mm = new Map();
+  for (const m of state.merges) { mm.set(m.prevId, m); mm.set(m.curId, m); }
+  for (const r of state.recs) r.merge = mm.get(r.id) || null;
+  state.byEmp = new Map();
+  for (const r of state.recs) {
+    if (!state.byEmp.has(r.code)) state.byEmp.set(r.code, []);
+    state.byEmp.get(r.code).push(r);
+  }
+}
+
+function setEdit(r, field, val) {
+  if (MODE === "server") queueEdit(r.key, field, val);
+  r[field] = val;
+  const e = state.edits[r.key] || {};
+  e[field] = val;
+  state.edits[r.key] = e;
+  r.edited = true;
+}
+function applyMerge(m) {
+  const prev = state.recs[m.prevId], cur = state.recs[m.curId];
+  setEdit(prev, "out", m.t);
+  setEdit(cur, "in", null); setEdit(cur, "out", null);
+}
+
+/* ---------- lưu tạm trong trình duyệt ---------- */
+let saveTimer = null;
+// Cài đặt lưu từ bản cũ: thay quy tắc ca bằng bản mới, giữ ngày lễ và các thông số khác
+function migrateCfg(c) {
+  if (c.phienBan === DEFAULT_CFG.phienBan) return c;
+  const d = JSON.parse(JSON.stringify(DEFAULT_CFG));
+  return { ...d, ngayLe: c.ngayLe || d.ngayLe, gioNghi: c.gioNghi ?? d.gioNghi, treChoPhep: c.treChoPhep ?? d.treChoPhep };
+}
+function persist() {
+  if (MODE === "server") return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({ cfg: state.cfg, files: state.files, period: state.period, edits: state.edits, sample: state.sample }));
+    } catch (e) { /* đầy bộ nhớ hoặc bị chặn: bỏ qua */ }
+  }, 400);
+}
+function restore() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (!s) return false;
+    if (s.cfg) state.cfg = migrateCfg(s.cfg);
+    state.files = s.files || { SX: null, VP: null };
+    state.period = s.period || null;
+    state.edits = s.edits || {};
+    state.sample = !!s.sample;
+    return !!(state.files.SX || state.files.VP);
+  } catch (e) { return false; }
+}
+
+/* =========================================================================
+ *  8. DỮ LIỆU MẪU (lấy từ ảnh bảng chấm công tháng 10/2026)
+ * ========================================================================= */
+function sampleData() {
+  const T = (d, i, o) => [d, i, o];
+  const dong = [
+    T(1, "19:50", "06:59"), T(2, "19:20", "07:01"), T(3, "18:46", "05:00"), T(4), T(5),
+    T(6, "06:37", "19:01"), T(7, "06:35", "18:59"), T(8, "06:37", "19:01"), T(9, "06:39", "19:01"), T(10, "06:46", "19:01"),
+    T(11), T(12, "06:44", "19:21"), T(13, "06:45", "18:59"), T(14, "06:42", "16:30"), T(15), T(16), T(17), T(18),
+    T(19, "18:35", "06:59"), T(20, "18:40", "06:59"), T(21, "18:34", "07:01"), T(22, "18:42"), T(23, "18:41"),
+    T(24, "09:30", "18:40"), T(25, "06:59"), T(26, "06:41", "19:03"), T(27, "06:40", "19:05"), T(28, "06:43", "19:00"),
+    T(29, "06:39", "19:12"), T(30, "06:44", "19:02"), T(31, "06:41", "19:06")
+  ];
+  const mk = (code, name, dept, pos, src, list) => list.map(([d, i, o]) => ({
+    code, name, dept, pos, src, date: isoFromYMD(2026, 10, d), in: i ? hm(i) : null, out: o ? hm(o) : null
+  }));
+  const day = (d) => [d, "06:" + pad(35 + (d * 7) % 20), "19:0" + (d % 6)];
+  const lieu = [];
+  for (let d = 1; d <= 31; d++) {
+    const w = dowOf(isoFromYMD(2026, 10, d));
+    if (w === 0) lieu.push(d === 18 ? [d, "06:42", "17:00"] : [d]);
+    else if (d === 8) lieu.push([d, "18:40", null]);
+    else if (d === 9) lieu.push([d, "07:03", null]);
+    else if (d === 16) lieu.push([d]);
+    else lieu.push(day(d));
+  }
+  const vp = [];
+  for (let d = 1; d <= 31; d++) {
+    const w = dowOf(isoFromYMD(2026, 10, d));
+    if (w === 0) vp.push([d]);
+    else if (d === 21) vp.push([d, null, "17:12"]);
+    else if (d % 5 === 0) vp.push([d, "08:" + pad(d % 9), "17:" + pad(5 + (d * 3) % 40)]);
+    else vp.push([d, "07:" + pad(48 + d % 12), "17:" + pad(5 + (d * 3) % 40)]);
+  }
+  return {
+    SX: { name: "Mẫu - máy sản xuất.xlsx", period: { from: "2026-10-01", to: "2026-10-31" },
+      rows: [...mk("NV0001", "Bùi Thị Liễu", "QC", "Nhân viên", "SX", lieu), ...mk("NV0005", "Nguyễn Văn Đông", "AKO", "Nhân viên", "SX", dong)] },
+    VP: { name: "Mẫu - máy văn phòng.xlsx", period: { from: "2026-10-01", to: "2026-10-31" },
+      rows: mk("NV0102", "Trần Thị Mai (mẫu)", "Hành chính", "Nhân viên", "VP", vp) }
+  };
+}
+
+/* =========================================================================
+ *  9. GIAO DIỆN
+ * ========================================================================= */
+const $ = id => document.getElementById(id);
+
+function issueCounts(rs) {
+  let e = 0, w = 0, i = 0;
+  for (const r of rs) {
+    if (r.calc.issues.some(x => x.level === "e")) e++;
+    else if (r.calc.issues.some(x => x.level === "w")) w++;
+    if (r.calc.issues.some(x => x.code === "LATE" || x.code === "EARLY")) i++;
+  }
+  return { e, w, i };
+}
+
+function renderAll() {
+  renderServerUI();
+  renderFiles(); renderBanner(); renderStats(); renderDepts(); renderEmps(); renderTable(); renderRules(); renderExportState();
+}
+function renderFiles() {
+  for (const k of ["SX", "VP"]) {
+    const f = state.files[k], el = $("st" + k);
+    if (!f) { el.className = "s"; el.textContent = "Kéo thả hoặc bấm để chọn file .xls / .xlsx / .csv"; continue; }
+    const n = new Set(f.rows.map(r => r.code)).size;
+    el.className = "s ok";
+    el.textContent = "✓ " + f.name + " · " + f.rows.length + " dòng · " + n + " nhân viên";
+  }
+  if (state.period) { $("pFrom").value = state.period.from; $("pTo").value = state.period.to; }
+}
+function renderBanner() {
+  if (MODE === "server" && !state.recs.length) {
+    $("banner").innerHTML = `<div class="banner sample">${canEdit() ? "Chưa có kỳ công nào. Nạp file của máy sản xuất và máy văn phòng để tạo kỳ công; dữ liệu được lưu lên máy chủ cho mọi người cùng dùng." : "Chưa có kỳ công nào được nạp."}</div>`;
+    return;
+  }
+  $("banner").innerHTML = state.sample
+    ? `<div class="banner sample"><b>Đang hiển thị dữ liệu mẫu.</b> Nạp file chấm công thật ở hai ô phía trên để thay thế. Dữ liệu mẫu sẽ tự xoá khi bạn nạp file đầu tiên.</div>`
+    : "";
+}
+function renderStats() {
+  const rs = state.recs;
+  const miss = rs.filter(r => r.calc.issues.some(i => i.level === "e")).length;
+  const abs = rs.filter(r => r.calc.issues.some(i => i.code === "ABSENT")).length;
+  const oth = rs.filter(r => r.calc.issues.some(i => i.level === "w" && i.code !== "ABSENT")).length;
+  const late = rs.filter(r => r.calc.issues.some(i => i.code === "LATE" || i.code === "EARLY")).length;
+  const v = state.view.stat;
+  const card = (cls, key, n, l) => `<button type="button" class="stat ${cls}${v === key ? " on" : ""}" data-stat="${key}"><div class="n">${n}</div><div class="l">${l}</div></button>`;
+  $("stats").innerHTML =
+    card("a", "", state.emps.length, "Nhân viên · " + (state.period ? vnDate(state.period.from) + " – " + vnDate(state.period.to) : "chưa có kỳ công")) +
+    card("e", "miss", miss, "Dòng thiếu giờ vào / ra") +
+    card("w", "abs", abs, "Ngày vắng chưa có lý do") +
+    card("w", "oth", oth, "Ca bất thường / cảnh báo khác") +
+    card("i", "late", late, "Đi muộn, về sớm") +
+    card("i", "merge", state.merges.length, "Gợi ý ghép giờ ra ca đêm");
+}
+function renderDepts() {
+  const sel = $("fDept"), cur = state.view.dept;
+  const ds = [...new Set(state.emps.map(e => e.dept).filter(Boolean))].sort();
+  sel.innerHTML = `<option value="">Tất cả</option>` + ds.map(d => `<option${d === cur ? " selected" : ""}>${esc(d)}</option>`).join("");
+}
+function empMatches(e) {
+  const q = norm(state.view.q);
+  if (q && !norm(e.code + " " + e.name).includes(q)) return false;
+  if (state.view.dept && e.dept !== state.view.dept) return false;
+  return true;
+}
+function renderEmps() {
+  const list = state.emps.filter(empMatches);
+  const all = issueCounts(state.recs.filter(r => empMatches(state.emps.find(e => e.code === r.code) || {})));
+  let h = `<button type="button" class="emp${state.view.emp ? "" : " on"}" data-emp=""><span class="nm">Tất cả nhân viên</span><span class="cd">${list.length} người</span><span class="bd">${all.e ? `<span class="pill e" title="Dòng thiếu giờ">${all.e}</span>` : ""}${all.w ? `<span class="pill w" title="Cảnh báo">${all.w}</span>` : ""}</span></button>`;
+  for (const e of list) {
+    const c = issueCounts(state.byEmp.get(e.code) || []);
+    h += `<button type="button" class="emp${state.view.emp === e.code ? " on" : ""}" data-emp="${esc(e.code)}"><span class="nm">${esc(e.name)}</span><span class="cd">${esc(e.code)} · ${esc(e.dept)} · ${e.srcs.join("+")}</span><span class="bd">${c.e ? `<span class="pill e">${c.e}</span>` : ""}${c.w ? `<span class="pill w">${c.w}</span>` : ""}${!c.e && !c.w ? `<span class="pill ok">✓</span>` : ""}</span></button>`;
+  }
+  if (!state.emps.length) h = `<div class="muted" style="padding:8px">Chưa có dữ liệu.</div>`;
+  $("emps").innerHTML = h;
+}
+
+function rowVisible(r) {
+  const v = state.view;
+  if (v.emp && r.code !== v.emp) return false;
+  if (!v.emp) { const e = state.emps.find(x => x.code === r.code); if (e && !empMatches(e)) return false; }
+  const I = r.calc.issues;
+  if (v.stat) {
+    if (v.stat === "miss") return I.some(i => i.level === "e");
+    if (v.stat === "abs") return I.some(i => i.code === "ABSENT");
+    if (v.stat === "oth") return I.some(i => i.level === "w" && i.code !== "ABSENT");
+    if (v.stat === "late") return I.some(i => i.code === "LATE" || i.code === "EARLY");
+    if (v.stat === "merge") return !!r.merge;
+  }
+  if (v.status === "err") return I.some(i => i.level === "e");
+  if (v.status === "todo") return I.some(i => i.level === "e" || i.level === "w") || !!r.merge;
+  return true;
+}
+
+let rateColsUI = [];
+function renderTable() {
+  rateColsUI = visibleRateCols(state.recs);
+  const rows = state.recs.filter(rowVisible);
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  if (state.view.page >= pages) state.view.page = pages - 1;
+  const slice = rows.slice(state.view.page * PAGE, (state.view.page + 1) * PAGE);
+  let h = `<thead><tr><th>Mã NV</th><th>Tên nhân viên</th><th>Ngày</th><th>Thứ</th><th>Máy</th><th>Vào</th><th>Ra</th><th>Nghỉ</th><th>Tình trạng</th>${rateColsUI.map(c => `<th>${c}%</th>`).join("")}<th>Đêm</th><th>Ca</th><th>Ghi chú</th></tr></thead><tbody>`;
+  if (!slice.length) {
+    h += `<tr><td colspan="${12 + rateColsUI.length}" class="empty">${state.recs.length ? "Không còn dòng nào cần xử lý với bộ lọc này. Chọn “Tất cả các dòng” để xem toàn bộ bảng công." : "Nạp file chấm công để bắt đầu."}</td></tr>`;
+  }
+  let prevCode = null;
+  for (const r of slice) { h += `<tr ${rowAttrs(r, prevCode)}>${rowCells(r)}</tr>`; prevCode = r.code; }
+  h += "</tbody>";
+  $("tbl").innerHTML = h;
+  $("pager").innerHTML = rows.length > PAGE
+    ? `<span>${rows.length} dòng · trang ${state.view.page + 1}/${pages}</span><button class="btn" type="button" data-page="-1" ${state.view.page === 0 ? "disabled" : ""}>‹ Trước</button><button class="btn" type="button" data-page="1" ${state.view.page >= pages - 1 ? "disabled" : ""}>Sau ›</button>`
+    : `<span>${rows.length} dòng</span>`;
+}
+function rowAttrs(r, prevCode) {
+  const lv = r.calc.issues.some(i => i.level === "e") ? "r-e" : r.calc.issues.some(i => i.level === "w") ? "r-w" : "";
+  const cls = [lv, r.calc.dayType !== "thuong" ? "sun" : "", prevCode !== null && prevCode !== r.code ? "emp-start" : ""].filter(Boolean).join(" ");
+  return `data-id="${r.id}" class="${cls}"`;
+}
+function rowCells(r) {
+  const c = r.calc, ed = state.edits[r.key] || {};
+  const missIn = c.issues.some(i => i.code === "MISS_IN"), missOut = c.issues.some(i => i.code === "MISS_OUT");
+  const allowed = state.cfg.mayCham[r.src] || Object.keys(state.cfg.ca);
+  const autoName = c.shiftKey && !r.shift ? state.cfg.ca[c.shiftKey].ten : "";
+  const shiftSel = `<select data-f="shift" aria-label="Ca"${DIS()} class="${"shift" in ed ? "ed" : ""}"><option value="">Tự động${autoName ? " · " + esc(autoName) : ""}</option>${Object.keys(state.cfg.ca).map(k => `<option value="${k}"${r.shift === k ? " selected" : ""}>${esc(state.cfg.ca[k].ten)}${allowed.includes(k) ? "" : " *"}</option>`).join("")}</select>`;
+  const leaveSel = `<select data-f="leave" aria-label="Loại nghỉ"${DIS()} class="${"leave" in ed ? "ed" : ""}"><option value="">${c.autoLeave ? c.autoLeave + " (tự)" : "–"}</option>${LEAVES.map(k => `<option value="${k}"${r.leave === k ? " selected" : ""} title="${LEAVE_NAME[k]}">${k}</option>`).join("")}</select>`;
+  const num = v => v ? v.toFixed(2) : "";
+  let chips = c.issues.map(i => `<span class="chip ${i.level}">${esc(i.msg)}</span>`).join("");
+  if (r.merge && canEdit()) chips += `<button type="button" class="mini" data-merge="${r.id}" title="Chuyển giờ ${fmtHM(r.merge.t)} thành giờ ra của ca đêm ngày ${vnDate(state.recs[r.merge.prevId].date)}">Ghép ${fmtHM(r.merge.t)} làm giờ ra ca đêm</button>`;
+  if (!chips) chips = c.hours || Object.keys(c.leave).length ? `<span class="chip ok">✓</span>` : `<span class="muted">–</span>`;
+  if (r.edited || Object.keys(ed).length) {
+    const em = server.editMeta[r.key];
+    const who = em ? ` · sửa bởi ${em.by} lúc ${new Date(em.at).toLocaleString("vi-VN")}` : "";
+    chips += `<span class="chip i" title="Giờ gốc: ${fmtHM(r.raw.in) || "trống"} → ${fmtHM(r.raw.out) || "trống"}${esc(who)}">Đã sửa${em ? " · " + esc(em.by) : ""}</span>`;
+  }
+  return `<td class="mono">${esc(r.code)}</td><td>${esc(r.name)}</td><td class="c">${vnDate(r.date)}</td><td class="c">${thuLabel(r.date)}</td><td class="c">${r.srcs.join("+") || "–"}</td>` +
+    `<td class="c"><input class="t${missIn ? " miss" : ""}${"in" in ed ? " ed" : ""}" data-f="in"${DIS()} value="${fmtHM(r.in)}" placeholder="--:--" inputmode="numeric" aria-label="Giờ vào"></td>` +
+    `<td class="c"><input class="t${missOut ? " miss" : ""}${"out" in ed ? " ed" : ""}" data-f="out"${DIS()} value="${fmtHM(r.out)}" placeholder="--:--" inputmode="numeric" aria-label="Giờ ra"></td>` +
+    `<td>${leaveSel}</td><td><div class="st">${chips}</div></td>` +
+    rateColsUI.map(k => `<td class="n">${num(c.cols[k])}</td>`).join("") +
+    `<td class="n">${c.dem ? "1" : ""}</td><td>${shiftSel}</td>` +
+    `<td><input class="note${"note" in ed ? " ed" : ""}" data-f="note"${DIS()} value="${esc(r.note)}" placeholder="${esc(noteOf(r) === "-" ? "" : noteOf(r))}" aria-label="Ghi chú"></td>`;
+}
+function refreshEmployeeRows(code) {
+  const act = document.activeElement;
+  const focus = act && act.closest && act.closest("tr[data-id]") ? { id: act.closest("tr").dataset.id, f: act.dataset.f, sel: act.selectionStart } : null;
+  const tb = $("tbl").tBodies[0];
+  if (!tb) return;
+  const newCols = visibleRateCols(state.recs);
+  if (newCols.join() !== rateColsUI.join()) { renderTable(); return; }
+  let prevCode = null;
+  for (const tr of [...tb.rows]) {
+    const id = tr.dataset.id;
+    if (id == null) continue;
+    const r = state.recs[+id];
+    if (r.code === code) {
+      const tmp = document.createElement("tbody");
+      tmp.innerHTML = `<tr ${rowAttrs(r, prevCode)}>${rowCells(r)}</tr>`;
+      tr.replaceWith(tmp.firstChild);
+    }
+    prevCode = r.code;
+  }
+  if (focus) {
+    const el = tb.querySelector(`tr[data-id="${focus.id}"] [data-f="${focus.f}"]`);
+    if (el) { el.focus(); try { if (focus.sel != null) el.setSelectionRange(focus.sel, focus.sel); } catch (e) {} }
+  }
+}
+
+function renderRules() {
+  const cfg = state.cfg;
+  const dt = { thuong: "Ngày thường", chuNhat: "Chủ nhật", le: "Ngày lễ" };
+  const t = s => { const m = hm(s); return m >= 1440 ? fmtHM(m) + " (hôm sau)" : s; };
+  let h = `<div><b>Cách tính hiện tại</b></div>`;
+  for (const k of Object.keys(cfg.ca)) {
+    const sh = cfg.ca[k];
+    const machines = Object.keys(cfg.mayCham).filter(m => cfg.mayCham[m].includes(k)).map(m => SRC_NAME[m] || m).join(", ");
+    h += `<div><b>${esc(sh.ten)}</b> <span class="muted">(máy ${esc(machines || "–")}, nhận khi giờ vào từ ${sh.nhanDien[0]} đến ${t(sh.nhanDien[1])})</span><ul>`;
+    for (const d of Object.keys(sh.quyTac)) {
+      h += `<li>${dt[d] || d}: ` + sh.quyTac[d].map(([a, b, c, k]) => (b ? `${t(a)}–${t(b)} → ${c}%` : `sau ${t(a)} → ${c}%`) + (k === "TC" ? " (tăng ca)" : "")).join("; ") + `</li>`;
+    }
+    if (sh.diMuon && sh.diMuon.tinhLuot) h += `<li>Đi muộn: vào từ ${esc(sh.diMuon.tu)} trở đi tính 1 lượt đi muộn${sh.diMuon.khongTruCong ? ", không trừ phút vào giờ công" : ""}.</li>`;
+    else h += `<li>Đi muộn: trừ theo số phút thực tế (quá ${cfg.treChoPhep} phút).</li>`;
+    h += `</ul></div>`;
+  }
+  h += `<div class="muted"><b>Tăng ca</b> (khung có ghi "tăng ca"): tổng phút tăng ca trong ngày dưới ${(cfg.tangCa && cfg.tangCa.toiThieu) || 0} phút thì không tính; đạt thì tính như giờ làm: phút lẻ dưới ${cfg.lamTron.phutToiThieu} bỏ, từ ${cfg.lamTron.phutToiThieu} tính đúng phút (40 phút = 0,67h; 1h20 = 1h; 1h40 = 1,67h).</div><div class="muted">Giờ trong ca và giờ làm Chủ nhật/lễ : phút lẻ dưới ${cfg.lamTron.phutToiThieu} phút thì bỏ, từ ${cfg.lamTron.phutToiThieu} phút trở lên tính đúng số phút (ví dụ ra 14:20 tính đến 14:00, ra 14:40 tính đến 14:40). Đến trước giờ bắt đầu ca không được tính. Đi trễ ≤ ${cfg.treChoPhep} phút coi như đúng giờ. Ngày lễ không đi làm tự ghi NL = ${cfg.gioNghi}h. Cột Đêm đếm số ca đêm.</div>`;
+  $("rulesText").innerHTML = h;
+  $("sHolidays").value = cfg.ngayLe.map(vnDate).join("\n");
+  $("sLeave").value = cfg.gioNghi;
+  $("sLate").value = cfg.treChoPhep;
+  $("sUp").value = cfg.lamTron.phutToiThieu;
+  $("sOt").value = (cfg.tangCa && cfg.tangCa.toiThieu) || 0;
+  const { ca, mayCham, cotHeSo, anCotNeuTrong, ngayNghiTuan, tangCa } = cfg;
+  $("sJson").value = JSON.stringify({ tangCa, ngayNghiTuan, cotHeSo, anCotNeuTrong, mayCham, ca }, null, 2);
+}
+
+let pendingExport = null;
+function renderExportState(msg, cls) {
+  const errs = state.recs.filter(r => r.calc.issues.some(i => i.level === "e")).length;
+  $("btnOne").hidden = !state.view.emp;
+  $("btnMergeAll").textContent = "Ghép giờ ra ca đêm (" + state.merges.length + ")";
+  $("btnMergeAll").disabled = !state.merges.length || !canEdit();
+  ["btnZip", "btnBook", "btnIssues", "btnOne"].forEach(id => $(id).disabled = !state.recs.length);
+  const m = $("exportMsg");
+  if (msg) { m.className = "msg " + (cls || ""); m.textContent = msg; return; }
+  pendingExport = null;
+  m.className = "msg" + (errs ? " e" : " ok");
+  m.textContent = !state.recs.length ? "" : errs ? `Còn ${errs} dòng thiếu giờ vào/ra. Các dòng này sẽ được tô đỏ trong file xuất.` : "Không còn dòng thiếu giờ. Có thể xuất file gửi nhân viên.";
+}
+
+/* ---------- tải file ---------- */
+let dlCap = null;
+(async () => { try { if (window.claude && typeof window.claude.use === "function") dlCap = await window.claude.use("downloads"); } catch (e) { dlCap = null; } })();
+async function saveFile(filename, blob) {
+  if (dlCap) {
+    try { await dlCap.save({ filename, data: blob }); return true; }
+    catch (e) {
+      if (e && e.code === "declined") { renderExportState("Đã huỷ tải file.", ""); return false; }
+      if (e && e.code === "rate_limited") { renderExportState("Đang có một hộp thoại tải file mở. Đóng nó rồi thử lại.", "e"); return false; }
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return true;
+}
+function periodTag() { const { y, m } = isoToParts(state.period.from); return "T" + pad(m) + "-" + y; }
+function guardErrors(kind) {
+  const errs = state.recs.filter(r => r.calc.issues.some(i => i.level === "e")).length;
+  if (!errs || pendingExport === kind) { pendingExport = null; return true; }
+  pendingExport = kind;
+  renderExportState(`Còn ${errs} dòng thiếu giờ vào/ra. Bấm lại nút vừa chọn để vẫn xuất (dòng lỗi sẽ tô đỏ), hoặc bổ sung giờ trước.`, "e");
+  return false;
+}
+async function exportZip() {
+  if (!guardErrors("zip")) return;
+  renderExportState("Đang tạo file…");
+  const zip = new JSZip();
+  for (const e of state.emps) {
+    const rs = state.byEmp.get(e.code) || [];
+    const blob = await XW.build([employeeSheet(e, rs, visibleRateCols(rs))]);
+    zip.file(`${e.code}_${slugName(e.name)}_${periodTag()}.xlsx`, blob);
+  }
+  const out = await zip.generateAsync({ type: "blob", compression: "STORE" });
+  const ok = await saveFile(`BangCong_${periodTag()}_${state.emps.length}NV.zip`, out);
+  if (ok) renderExportState(`Đã tạo ZIP gồm ${state.emps.length} file, mỗi nhân viên một file.`, "ok");
+}
+async function exportBook() {
+  if (!guardErrors("book")) return;
+  renderExportState("Đang tạo file…");
+  const sheets = [summarySheet(state.emps)];
+  for (const e of state.emps) { const rs = state.byEmp.get(e.code) || []; sheets.push(employeeSheet(e, rs, visibleRateCols(rs))); }
+  const ok = await saveFile(`BangCong_TongHop_${periodTag()}.xlsx`, await XW.build(sheets));
+  if (ok) renderExportState(`Đã tạo file tổng hợp: 1 sheet tổng + ${state.emps.length} sheet nhân viên.`, "ok");
+}
+async function exportOne() {
+  const e = state.emps.find(x => x.code === state.view.emp);
+  if (!e) return;
+  const rs = state.byEmp.get(e.code) || [];
+  const ok = await saveFile(`${e.code}_${slugName(e.name)}_${periodTag()}.xlsx`, await XW.build([employeeSheet(e, rs, visibleRateCols(rs))]));
+  if (ok) renderExportState("Đã tạo file cho " + e.name + ".", "ok");
+}
+async function exportIssues() {
+  const ok = await saveFile(`CanBoSung_${periodTag()}.xlsx`, await XW.build([issuesSheet()]));
+  if (ok) renderExportState("Đã tạo danh sách cần bổ sung.", "ok");
+}
+
+/* ---------- nạp file ---------- */
+async function loadFile(src, file) {
+  const st = $("st" + src);
+  st.className = "s"; st.textContent = "Đang đọc " + file.name + "…";
+  try {
+    const buf = await file.arrayBuffer();
+    const parsed = readWorkbook(buf, src);
+    if (MODE === "server") {
+      if (!canEdit()) throw new Error("Tài khoản chỉ xem không được nạp file.");
+      const id = parsed.period.from.slice(0, 7);
+      if (server.periodId !== id) {
+        await flushEdits();
+        if (server.periods.some(p => p.id === id)) await loadPeriod(id);
+        else { state.files = { SX: null, VP: null }; state.edits = {}; state.period = null; server.periodId = id; server.rev = 0; server.editMeta = {}; }
+      }
+    }
+    if (state.sample) { state.files = { SX: null, VP: null }; state.edits = {}; state.period = null; state.sample = false; }
+    state.files[src] = { name: file.name, rows: parsed.rows, period: parsed.period };
+    if (!state.period) state.period = parsed.period;
+    else state.period = { from: [state.period.from, parsed.period.from].sort()[0], to: [state.period.to, parsed.period.to].sort()[1] };
+    state.view.emp = ""; state.view.page = 0; state.view.stat = "";
+    rebuild(); renderAll(); persist();
+    if (MODE === "server") {
+      setSync("Đang lưu " + file.name + " lên máy chủ…");
+      try { await savePeriod({ [src]: compactFile(state.files[src]) }); }
+      catch (e) { setSync("Đã đọc file nhưng chưa lưu lên máy chủ: " + e.message + " Nạp lại file để thử lại.", "e"); }
+    }
+  } catch (e) {
+    st.className = "s bad"; st.textContent = "Không đọc được: " + (e && e.message || e);
+  }
+}
+
+/* ---------- sự kiện ---------- */
+function bind() {
+  for (const k of ["SX", "VP"]) {
+    $("file" + k).addEventListener("change", ev => { const f = ev.target.files[0]; if (f) loadFile(k, f); ev.target.value = ""; });
+    const dz = $("drop" + k);
+    dz.addEventListener("dragover", ev => { ev.preventDefault(); dz.classList.add("over"); });
+    dz.addEventListener("dragleave", () => dz.classList.remove("over"));
+    dz.addEventListener("drop", ev => { ev.preventDefault(); dz.classList.remove("over"); const f = ev.dataTransfer.files[0]; if (f) loadFile(k, f); });
+  }
+  const onPeriod = () => {
+    const a = $("pFrom").value, b = $("pTo").value;
+    if (!a || !b || a > b) return;
+    state.period = { from: a, to: b }; rebuild(); renderAll(); persist();
+    if (MODE === "server" && server.periodId && canEdit()) savePeriod().catch(e => setSync("Chưa lưu được kỳ công: " + e.message, "e"));
+  };
+  $("pFrom").addEventListener("change", onPeriod);
+  $("pTo").addEventListener("change", onPeriod);
+
+  $("stats").addEventListener("click", ev => {
+    const b = ev.target.closest("[data-stat]"); if (!b) return;
+    const k = b.dataset.stat;
+    state.view.stat = state.view.stat === k ? "" : k; state.view.page = 0;
+    renderStats(); renderTable();
+  });
+  $("emps").addEventListener("click", ev => {
+    const b = ev.target.closest("[data-emp]"); if (!b) return;
+    state.view.emp = b.dataset.emp; state.view.page = 0;
+    if (state.view.emp && state.view.status === "todo" && !state.view.stat) { $("fStatus").value = "all"; state.view.status = "all"; }
+    renderEmps(); renderTable(); renderExportState();
+  });
+  $("q").addEventListener("input", ev => { state.view.q = ev.target.value; state.view.page = 0; renderEmps(); renderTable(); });
+  $("fStatus").addEventListener("change", ev => { state.view.status = ev.target.value; state.view.stat = ""; state.view.page = 0; renderStats(); renderTable(); });
+  $("fDept").addEventListener("change", ev => { state.view.dept = ev.target.value; state.view.page = 0; renderEmps(); renderTable(); });
+  $("pager").addEventListener("click", ev => { const b = ev.target.closest("[data-page]"); if (!b) return; state.view.page += +b.dataset.page; renderTable(); });
+
+  const tbl = $("tbl");
+  tbl.addEventListener("change", ev => {
+    const el = ev.target, tr = el.closest("tr[data-id]"); if (!tr || !el.dataset.f) return;
+    const r = state.recs[+tr.dataset.id], f = el.dataset.f;
+    if (f === "in" || f === "out") {
+      const v = parseHMInput(el.value);
+      if (Number.isNaN(v)) { el.classList.add("bad"); el.title = "Nhập dạng HH:MM, ví dụ 07:05"; return; }
+      setEdit(r, f, v);
+    } else setEdit(r, f, el.value);
+    afterEdit(r.code);
+  });
+  tbl.addEventListener("keydown", ev => {
+    if (ev.key !== "Enter" || !ev.target.matches("input.t, input.note")) return;
+    ev.preventDefault();
+    const tr = ev.target.closest("tr"), f = ev.target.dataset.f;
+    ev.target.blur();
+    const next = tr.nextElementSibling && tr.nextElementSibling.querySelector(`[data-f="${f}"]`);
+    if (next) next.focus();
+  });
+  tbl.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-merge]"); if (!b) return;
+    const r = state.recs[+b.dataset.merge];
+    if (r.merge) { applyMerge(r.merge); afterEdit(r.code); }
+  });
+  $("btnMergeAll").addEventListener("click", () => {
+    const n = state.merges.length;
+    for (const m of [...state.merges]) applyMerge(m);
+    recomputeAll(); renderAll(); persist();
+    renderExportState(`Đã ghép ${n} giờ ra ca đêm.`, "ok");
+  });
+
+  $("btnZip").addEventListener("click", exportZip);
+  $("btnBook").addEventListener("click", exportBook);
+  $("btnOne").addEventListener("click", exportOne);
+  $("btnIssues").addEventListener("click", exportIssues);
+
+  let clearArmed = false;
+  const clearLabel = () => MODE === "server" ? "Xoá kỳ công này" : "Xoá dữ liệu đang làm";
+  $("btnClear").addEventListener("click", async () => {
+    if (!clearArmed) { clearArmed = true; $("btnClear").textContent = "Bấm lần nữa để xoá hết"; setTimeout(() => { clearArmed = false; $("btnClear").textContent = clearLabel(); }, 4000); return; }
+    clearArmed = false; $("btnClear").textContent = clearLabel();
+    if (MODE === "server") {
+      if (!server.periodId) return;
+      try {
+        server.queue.clear();
+        await api("period?id=" + server.periodId, { method: "DELETE" });
+        setSync("Đã xoá kỳ công " + server.periodId + ".", "ok");
+        await loadServerData();
+      } catch (e) { setSync("Không xoá được: " + e.message, "e"); }
+      return;
+    }
+    state.files = { SX: null, VP: null }; state.edits = {}; state.period = null; state.sample = false;
+    state.view = { emp: "", q: "", status: "todo", dept: "", page: 0, stat: "" };
+    $("pFrom").value = ""; $("pTo").value = "";
+    rebuild(); renderAll(); persist();
+  });
+
+  $("btnApply").addEventListener("click", async () => {
+    const msg = $("setMsg");
+    try {
+      const j = JSON.parse($("sJson").value);
+      const hol = $("sHolidays").value.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean).map(s => {
+        const d = parseVnDate(s); if (!d) throw new Error("Ngày lễ không hợp lệ: " + s); return d;
+      });
+      const cfg = {
+        ...state.cfg, ...j, ngayLe: [...new Set(hol)].sort(),
+        gioNghi: +$("sLeave").value || 0, treChoPhep: +$("sLate").value || 0,
+        lamTron: { phutToiThieu: Math.min(59, Math.max(0, +$("sUp").value || 0)) },
+        tangCa: { ...(j.tangCa || state.cfg.tangCa), toiThieu: Math.max(0, +$("sOt").value || 0) }
+      };
+      for (const k of Object.keys(cfg.ca)) {
+        const sh = cfg.ca[k];
+        [sh.batDau, sh.ketThuc, ...sh.nhanDien].forEach(hm);
+        if (sh.diMuon) hm(sh.diMuon.tu);
+        for (const d of Object.keys(sh.quyTac)) sh.quyTac[d].forEach(([a, b]) => { hm(a); if (b != null) hm(b); });
+      }
+      if (MODE === "server") await api("config", { method: "PUT", body: { cfg } });
+      state.cfg = cfg; recomputeAll(); renderAll(); persist();
+      msg.style.color = "var(--accent)"; msg.textContent = MODE === "server" ? "Đã lưu lên máy chủ và tính lại cho mọi người." : "Đã áp dụng và tính lại.";
+    } catch (e) { msg.style.color = "var(--err)"; msg.textContent = "Chưa áp dụng: " + e.message; }
+  });
+  $("btnReset").addEventListener("click", async () => {
+    if (MODE === "server") {
+      try { await api("config", { method: "DELETE" }); }
+      catch (e) { $("setMsg").style.color = "var(--err)"; $("setMsg").textContent = "Chưa khôi phục được: " + e.message; return; }
+    }
+    state.cfg = JSON.parse(JSON.stringify(DEFAULT_CFG)); recomputeAll(); renderAll(); persist();
+    $("setMsg").style.color = "var(--accent)"; $("setMsg").textContent = "Đã khôi phục cài đặt mặc định.";
+  });
+}
+function afterEdit(code) {
+  recomputeAll();
+  refreshEmployeeRows(code);
+  renderStats(); renderEmps(); renderExportState(); persist();
+}
+
+/* =========================================================================
+ *  10. CHẾ ĐỘ MÁY CHỦ (server.js chạy trên máy trong công ty)
+ *  Khi trang được mở qua server.js (có /api): bắt đăng nhập, lưu kỳ công và từng ô sửa lên máy chủ,
+ *  15 giây kiểm tra thay đổi của người khác một lần. Mở file trực tiếp (không có /api) thì
+ *  chạy chế độ offline như cũ, dữ liệu lưu trong trình duyệt.
+ * ========================================================================= */
+let MODE = "local";
+const server = { user: null, periodId: null, rev: 0, periods: [], editMeta: {}, queue: new Map(), flushTimer: null, saving: false, bootError: "", users: [] };
+const ROLE_NAME = { admin: "Quản trị", hr: "Nhân sự", viewer: "Chỉ xem" };
+function canEdit() { return MODE === "local" || !!(server.user && server.user.role !== "viewer"); }
+function isAdmin() { return MODE === "server" && !!server.user && server.user.role === "admin"; }
+function DIS() { return canEdit() ? "" : " disabled"; }
+
+async function api(path, opt = {}) {
+  let r;
+  try {
+    r = await fetch("/api/" + path, {
+      method: opt.method || "GET", credentials: "same-origin",
+      headers: opt.body !== undefined ? { "Content-Type": "application/json" } : {},
+      body: opt.body !== undefined ? JSON.stringify(opt.body) : undefined
+    });
+  } catch (e) { const err = new Error("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại."); err.status = 0; throw err; }
+  let j = null;
+  try { j = await r.json(); } catch (e) { /* không phải JSON */ }
+  if (!r.ok) {
+    const err = new Error((j && j.error) || ("Máy chủ trả lỗi " + r.status + ".")); err.status = r.status;
+    if (r.status === 401 && path !== "login") showLogin("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+    throw err;
+  }
+  return j;
+}
+async function detectMode() {
+  if (location.protocol === "file:") return "local";
+  try {
+    const r = await fetch("/api/me", { credentials: "same-origin" });
+    if (!(r.headers.get("content-type") || "").includes("application/json")) return "local";
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 200) { server.user = j.user; return "server"; }
+    if (r.status === 401) return "server";
+    if (r.status >= 500) { server.bootError = j.error || "Máy chủ lỗi."; return "server"; }
+    return "local";
+  } catch (e) { return "local"; }
+}
+
+/* Rút gọn dữ liệu file trước khi gửi: danh sách nhân viên + dòng [chỉ số NV, ngày, vào, ra] */
+function compactFile(f) {
+  if (!f) return null;
+  const idx = new Map(), emps = [];
+  const rows = f.rows.map(r => {
+    let i = idx.get(r.code);
+    if (i == null) { i = emps.length; idx.set(r.code, i); emps.push([r.code, r.name, r.dept, r.pos]); }
+    return [i, r.date, r.in, r.out];
+  });
+  return { name: f.name, period: f.period, emps, rows };
+}
+function expandFile(c, src) {
+  if (!c) return null;
+  return {
+    name: c.name, period: c.period, uploadedBy: c.uploadedBy, uploadedAt: c.uploadedAt,
+    rows: c.rows.map(([i, date, tin, tout]) => { const e = c.emps[i]; return { code: e[0], name: e[1], dept: e[2], pos: e[3], date, in: tin, out: tout, src }; })
+  };
+}
+
+function setSync(msg, cls) { const el = $("syncMsg"); el.className = "sync" + (cls ? " " + cls : ""); el.textContent = msg || ""; }
+function periodLabel(m) { const { y, m: mm } = isoToParts(m.from); return "Tháng " + pad(mm) + "/" + y + " (" + vnDate(m.from).slice(0, 5) + " – " + vnDate(m.to).slice(0, 5) + ")"; }
+function fmtWhen(iso) { const d = new Date(iso); return isNaN(d) ? String(iso) : pad(d.getHours()) + ":" + pad(d.getMinutes()) + " ngày " + pad(d.getDate()) + "/" + pad(d.getMonth() + 1); }
+
+function renderServerUI() {
+  const sv = MODE === "server";
+  $("userInfo").textContent = sv && server.user ? server.user.name + " · " + (ROLE_NAME[server.user.role] || server.user.role) : "";
+  $("btnLogout").hidden = !sv; $("btnAccount").hidden = !sv; $("accountPanel").hidden = !sv;
+  $("btnClear").hidden = sv && (!isAdmin() || !server.periodId);
+  if (!/Bấm lần nữa/.test($("btnClear").textContent)) $("btnClear").textContent = sv ? "Xoá kỳ công này" : "Xoá dữ liệu đang làm";
+  for (const k of ["SX", "VP"]) { $("file" + k).disabled = !canEdit(); $("drop" + k).classList.toggle("off", !canEdit()); }
+  $("pFrom").disabled = $("pTo").disabled = !canEdit();
+  const cfgEditable = !sv || isAdmin();
+  $("btnApply").disabled = $("btnReset").disabled = !cfgEditable;
+  $("cfgNote").textContent = !cfgEditable ? "Chỉ tài khoản Quản trị được đổi quy tắc tính công." : sv ? "Quy tắc lưu trên máy chủ và áp dụng cho mọi người dùng." : "";
+  $("usersBox").style.display = isAdmin() ? "grid" : "none";
+  // chọn kỳ công
+  $("pSelBox").hidden = !sv;
+  if (sv) {
+    const list = server.periods.slice();
+    if (server.periodId && !list.some(p => p.id === server.periodId)) list.unshift({ id: server.periodId, from: server.periodId + "-01", to: server.periodId + "-01", unsaved: true });
+    $("pSel").innerHTML = list.length
+      ? list.map(p => `<option value="${p.id}"${p.id === server.periodId ? " selected" : ""}>${esc(p.unsaved ? "Tháng " + p.id + " (chưa lưu)" : periodLabel(p))}</option>`).join("")
+      : `<option value="">Chưa có kỳ công nào</option>`;
+    const m = server.periods.find(p => p.id === server.periodId);
+    $("pInfo").textContent = m ? "Cập nhật lần cuối: " + m.updatedBy + " · " + fmtWhen(m.updatedAt) : "";
+  } else $("pInfo").textContent = "";
+}
+
+function showLogin(msg) {
+  $("appView").hidden = true; $("loginView").hidden = false;
+  $("lMsg").textContent = msg || "";
+  setTimeout(() => $("lUser").focus(), 0);
+}
+function hideLogin() { $("loginView").hidden = true; $("appView").hidden = false; }
+
+function resetEmpty() {
+  state.files = { SX: null, VP: null }; state.edits = {}; state.period = null; state.sample = false;
+  server.periodId = null; server.rev = 0; server.editMeta = {};
+  state.view = { emp: "", q: "", status: "todo", dept: "", page: 0, stat: "" };
+  $("pFrom").value = ""; $("pTo").value = "";
+  rebuild(); renderAll();
+}
+async function loadServerData(preferId) {
+  const [c, p] = await Promise.all([api("config"), api("periods")]);
+  state.cfg = c.cfg ? migrateCfg(c.cfg) : JSON.parse(JSON.stringify(DEFAULT_CFG));
+  server.periods = p.periods || [];
+  const id = preferId && server.periods.some(x => x.id === preferId) ? preferId : (server.periods[0] && server.periods[0].id);
+  if (id) await loadPeriod(id); else resetEmpty();
+}
+async function loadPeriod(id, keepView) {
+  const d = await api("period?id=" + encodeURIComponent(id));
+  state.files = { SX: expandFile(d.files.SX, "SX"), VP: expandFile(d.files.VP, "VP") };
+  state.period = { from: d.meta.from, to: d.meta.to };
+  state.edits = {}; server.editMeta = {};
+  for (const k in d.edits) {
+    const i = k.lastIndexOf("#"), key = k.slice(0, i), f = k.slice(i + 1), e = d.edits[k];
+    (state.edits[key] = state.edits[key] || {})[f] = e.v;
+    const m = server.editMeta[key];
+    if (!m || m.at < e.at) server.editMeta[key] = { by: e.by, at: e.at };
+  }
+  // giữ lại các ô mình vừa sửa mà chưa kịp lưu
+  for (const [qk, v] of server.queue) { const i = qk.lastIndexOf("#"), key = qk.slice(0, i); (state.edits[key] = state.edits[key] || {})[qk.slice(i + 1)] = v; }
+  server.periodId = id; server.rev = d.rev; state.sample = false;
+  const at = server.periods.findIndex(p => p.id === id);
+  if (at >= 0) server.periods[at] = d.meta; else { server.periods.push(d.meta); server.periods.sort((a, b) => b.id.localeCompare(a.id)); }
+  if (!keepView) state.view = { emp: "", q: "", status: "todo", dept: "", page: 0, stat: "" };
+  rebuild(); renderAll();
+}
+/* Lưu (tạo) kỳ công; filesPatch = { SX: compact } chỉ gửi file vừa nạp */
+async function savePeriod(filesPatch) {
+  const id = server.periodId || state.period.from.slice(0, 7);
+  const out = await api("period?id=" + id, { method: "PUT", body: { from: state.period.from, to: state.period.to, files: filesPatch } });
+  server.periodId = id;
+  server.rev = out.rev === server.rev + 1 ? out.rev : out.rev - 1;   // lệch nghĩa là có người khác vừa ghi → lần kiểm tra sau sẽ tải lại
+  const at = server.periods.findIndex(p => p.id === id);
+  if (at >= 0) server.periods[at] = out.meta; else { server.periods.push(out.meta); server.periods.sort((a, b) => b.id.localeCompare(a.id)); }
+  renderServerUI();
+  setSync("Đã lưu kỳ công lên máy chủ lúc " + fmtWhen(out.meta.updatedAt) + ".", "ok");
+}
+/* Ghi từng ô sửa: gom trong 400ms rồi gửi một lần */
+function queueEdit(key, field, value) {
+  if (!server.periodId) return;
+  server.queue.set(key + "#" + field, value);
+  setSync("Đang lưu…");
+  clearTimeout(server.flushTimer);
+  server.flushTimer = setTimeout(flushEdits, 400);
+}
+async function flushEdits() {
+  clearTimeout(server.flushTimer); server.flushTimer = null;
+  if (server.saving || !server.queue.size || !server.periodId) return;
+  server.saving = true;
+  const batch = [...server.queue].slice(0, 400);
+  try {
+    const out = await api("period?id=" + server.periodId, { method: "PATCH", body: {
+      edits: batch.map(([k, v]) => { const i = k.lastIndexOf("#"); return { key: k.slice(0, i), field: k.slice(i + 1), value: v }; })
+    } });
+    for (const [k, v] of batch) if (server.queue.get(k) === v) server.queue.delete(k);
+    for (const [k] of batch) server.editMeta[k.slice(0, k.lastIndexOf("#"))] = { by: out.by, at: out.at };
+    server.rev = out.rev === server.rev + 1 ? out.rev : out.rev - 1;
+    setSync("Đã lưu lúc " + fmtWhen(out.at) + ".", "ok");
+  } catch (e) {
+    if (e.status === 400 || e.status === 403 || e.status === 404) { for (const [k] of batch) server.queue.delete(k); setSync("Không lưu được: " + e.message, "e"); }
+    else if (e.status !== 401) { setSync("Chưa lưu được: " + e.message + " Sẽ tự thử lại.", "e"); server.flushTimer = setTimeout(flushEdits, 5000); }
+  } finally { server.saving = false; }
+  if (server.queue.size && !server.flushTimer) server.flushTimer = setTimeout(flushEdits, 300);
+}
+/* Kiểm tra thay đổi của người khác */
+async function pollRev() {
+  if (MODE !== "server" || !server.user || !server.periodId || document.hidden) return;
+  if (server.queue.size || server.saving) return;
+  const a = document.activeElement;
+  if (a && a.closest && a.closest("#tbl") && a.matches("input, select")) return;
+  try {
+    const { rev } = await api("period?id=" + server.periodId + "&rev=1");
+    if (rev > server.rev) { await loadPeriod(server.periodId, true); setSync("Đã cập nhật thay đổi mới từ người khác lúc " + fmtWhen(new Date().toISOString()) + ".", "ok"); }
+  } catch (e) { /* bỏ qua, lần sau thử lại */ }
+}
+
+/* ---------- tài khoản ---------- */
+async function loadUsers() {
+  if (!isAdmin()) return;
+  try {
+    const { users } = await api("users");
+    server.users = users;
+    $("usersTbl").innerHTML = `<thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Vai trò</th><th>Trạng thái</th><th>Đặt lại mật khẩu</th><th></th></tr></thead><tbody>` +
+      users.map(u => `<tr data-u="${esc(u.username)}"><td class="mono">${esc(u.username)}</td><td>${esc(u.name)}</td>` +
+        `<td><select data-act="role" aria-label="Vai trò của ${esc(u.username)}">${["admin", "hr", "viewer"].map(r => `<option value="${r}"${u.role === r ? " selected" : ""}>${ROLE_NAME[r]}</option>`).join("")}</select></td>` +
+        `<td><button type="button" class="mini" data-act="toggle">${u.disabled ? "Đang khoá · Mở khoá" : "Đang dùng · Khoá"}</button></td>` +
+        `<td><input class="note" type="password" data-act="pw" placeholder="Mật khẩu mới" aria-label="Mật khẩu mới cho ${esc(u.username)}" autocomplete="new-password"> <button type="button" class="mini" data-act="setpw">Đặt</button></td>` +
+        `<td>${u.username === server.user.username ? `<span class="muted">Bạn</span>` : `<button type="button" class="mini" data-act="del" style="border-color:var(--err);color:var(--err)">Xoá</button>`}</td></tr>`).join("") + "</tbody>";
+  } catch (e) { $("uMsg").style.color = "var(--err)"; $("uMsg").textContent = e.message; }
+}
+function uMsg(text, ok) { $("uMsg").style.color = ok ? "var(--accent)" : "var(--err)"; $("uMsg").textContent = text; }
+
+function bindServer() {
+  $("loginForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    $("lBtn").disabled = true; $("lMsg").textContent = "";
+    try {
+      const { user } = await api("login", { method: "POST", body: { username: $("lUser").value, password: $("lPass").value } });
+      server.user = user; $("lPass").value = "";
+      hideLogin();
+      await loadServerData(server.periodId);
+    } catch (e) { $("lMsg").textContent = e.message; }
+    finally { $("lBtn").disabled = false; }
+  });
+  $("btnLogout").addEventListener("click", async () => {
+    await flushEdits();
+    try { await api("logout", { method: "POST" }); } catch (e) { /* vẫn đăng xuất phía giao diện */ }
+    server.user = null; server.queue.clear();
+    resetEmpty();
+    showLogin("");
+  });
+  $("btnAccount").addEventListener("click", () => {
+    $("accountPanel").open = true;
+    $("accountPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+    loadUsers();
+  });
+  $("accountPanel").addEventListener("toggle", () => { if ($("accountPanel").open) loadUsers(); });
+  $("pSel").addEventListener("change", async ev => {
+    const id = ev.target.value; if (!id || id === server.periodId) return;
+    await flushEdits();
+    try { await loadPeriod(id); setSync(""); } catch (e) { setSync("Không tải được kỳ công: " + e.message, "e"); }
+  });
+  $("pSel").addEventListener("focus", async () => {
+    try { server.periods = (await api("periods")).periods || []; renderServerUI(); } catch (e) { /* giữ danh sách cũ */ }
+  });
+  $("pwForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const m = $("pwMsg");
+    try {
+      await api("me", { method: "PUT", body: { oldPassword: $("pwOld").value, password: $("pwNew").value } });
+      $("pwOld").value = $("pwNew").value = "";
+      m.style.color = "var(--accent)"; m.textContent = "Đã đổi mật khẩu.";
+    } catch (e) { m.style.color = "var(--err)"; m.textContent = e.message; }
+  });
+  $("userForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    try {
+      const username = $("uUser").value.trim().toLowerCase();
+      if (server.users.some(u => u.username === username)) throw new Error("Tên đăng nhập đã tồn tại.");
+      await api("users", { method: "POST", body: { username, name: $("uName").value, role: $("uRole").value, password: $("uPass").value } });
+      $("uUser").value = $("uName").value = $("uPass").value = "";
+      uMsg("Đã thêm " + username + ". Gửi tên đăng nhập và mật khẩu ban đầu cho người dùng.", true);
+      loadUsers();
+    } catch (e) { uMsg(e.message); }
+  });
+  let delArmed = null;
+  $("usersTbl").addEventListener("change", async ev => {
+    if (ev.target.dataset.act !== "role") return;
+    const username = ev.target.closest("tr").dataset.u;
+    try { await api("users", { method: "POST", body: { username, role: ev.target.value } }); uMsg("Đã đổi vai trò của " + username + ".", true); }
+    catch (e) { uMsg(e.message); }
+    loadUsers();
+  });
+  $("usersTbl").addEventListener("click", async ev => {
+    const b = ev.target.closest("[data-act]"); if (!b || b.tagName === "SELECT" || b.tagName === "INPUT") return;
+    const tr = b.closest("tr"), username = tr.dataset.u, u = server.users.find(x => x.username === username);
+    try {
+      if (b.dataset.act === "toggle") {
+        await api("users", { method: "POST", body: { username, disabled: !u.disabled } });
+        uMsg((u.disabled ? "Đã mở khoá " : "Đã khoá ") + username + ".", true);
+      } else if (b.dataset.act === "setpw") {
+        const pw = tr.querySelector('[data-act="pw"]').value;
+        await api("users", { method: "POST", body: { username, password: pw } });
+        uMsg("Đã đặt lại mật khẩu cho " + username + ".", true);
+      } else if (b.dataset.act === "del") {
+        if (delArmed !== username) { delArmed = username; b.textContent = "Bấm lần nữa để xoá"; setTimeout(() => { if (delArmed === username) { delArmed = null; b.textContent = "Xoá"; } }, 4000); return; }
+        delArmed = null;
+        await api("users?username=" + encodeURIComponent(username), { method: "DELETE" });
+        uMsg("Đã xoá " + username + ".", true);
+      }
+    } catch (e) { uMsg(e.message); return; }
+    loadUsers();
+  });
+  setInterval(pollRev, 15000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) pollRev(); });
+  window.addEventListener("beforeunload", ev => { if (server.queue.size) { flushEdits(); ev.preventDefault(); ev.returnValue = ""; } });
+}
+
+/* ---------- khởi động ---------- */
+async function init() {
+  bind(); bindServer();
+  MODE = await detectMode();
+  if (MODE === "local") {
+    if (!restore()) { const s = sampleData(); state.files = s; state.period = { from: "2026-10-01", to: "2026-10-31" }; state.sample = true; }
+    rebuild(); renderAll();
+    return;
+  }
+  rebuild(); renderAll();
+  if (!server.user) { showLogin(server.bootError); return; }
+  hideLogin();
+  try { await loadServerData(); } catch (e) { setSync("Không tải được dữ liệu: " + e.message, "e"); }
+}
+window.TC = { state, server, compactFile, expandFile, computeRec, parseAOA, roundH, findNightMerges, employeeSheet, summarySheet, XW, rebuild, recomputeAll, renderAll, DEFAULT_CFG, hm, fmtHM };
+init();
+</script>
+</body>
+</html>

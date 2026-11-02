@@ -1,0 +1,16 @@
+{
+  "name": "tinhcong",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tính công từ file máy chấm công (sản xuất + văn phòng), chạy trên máy chủ nội bộ, nhiều người dùng qua mạng LAN",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "jszip": "3.10.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
